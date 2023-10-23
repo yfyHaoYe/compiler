@@ -2,12 +2,12 @@
     #include "lex.yy.c"
     void yyerror(const char*);
 %}
-%token INT, FLOAT, CHAR, ID, TYPE, STRUCT, IF, ELSE, WHILE, RETURN
-%token DOT, SEMI, COMMA, ASSSIGN, LT, LE, GT, GE, NE, EQ, PLUS, MINUS, MUL, DIV, AND, OR, NOT, LP, RP, LB, RB, LC, RC 
+%token DECINT HEXINT FLOAT PCHAR HEXCHAR ID TYPE STRUCT IF ELSE WHILE RETURN
+%token DOT SEMI COMMA ASSIGN LT LE GT GE NE EQ PLUS MINUS MUL DIV AND OR NOT LP RP LB RB LC RC 
 %%
 Program : ExtDefList
 ExtDefList : ExtDef ExtDefList
-    | $
+    |
 ExtDef : Specifier ExtDecList SEMI
     | Specifier SEMI
     | Specifier FunDec CompSt
@@ -22,7 +22,8 @@ StructSpecifier : STRUCT ID LC DefList RC
 
 /* declarator */
 VarDec : ID
-    | VarDec LB INT RB
+    | VarDec LB DECINT 
+    | VarDec LB HEXINT
 FunDec : ID LP VarList RP
     | ID LP RP
 VarList : ParamDec COMMA VarList
@@ -32,23 +33,24 @@ ParamDec : Specifier VarDec
 /* statement */
 CompSt : LC DefList StmtList RC
 StmtList : Stmt StmtList
-    | $
+    |
 Stmt : Exp SEMI
     | CompSt
     | RETURN Exp SEMI
     | IF LP Exp RP Stmt
     | IF LP Exp RP Stmt ELSE Stmt
     | WHILE LP Exp RP Stmt
+    ;
 
 /* local definition */
 DefList : Def DefList
-    | $
+    |
 Def : Specifier DecList SEMI
 DecList : Dec
     | Dec COMMA DecList
 Dec : VarDec
     | VarDec ASSIGN Exp
-
+    ;
 /* Expression */
 Exp : Exp ASSIGN Exp
     | Exp AND Exp
@@ -71,12 +73,17 @@ Exp : Exp ASSIGN Exp
     | Exp LB Exp RB
     | Exp DOT ID
     | ID
-    | INT
+    | DECINT
+    | HEXINT
     | FLOAT
-    | CHAR
+    | PCHAR
+    | HEXCHAR
+    ;
+
 Args : Exp COMMA Args
     | Exp
     ;
+
 %%
 void yyerror(const char *s) {
     fprintf(stderr, "%s\n", s);
