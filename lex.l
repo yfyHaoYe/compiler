@@ -3,6 +3,9 @@
     #define EXIT_FAIL 1
     #include "syntax.tab.h"
     #include "stdlib.h"
+    #include "string.h"
+    extern int yyerror(const char *s);
+    int line = 1;
 %}
 letter [a-zA-Z]
 letter_ {letter}|_
@@ -14,7 +17,6 @@ hex ["Ox"|"OX"]
 TYPE  ["int"|"float"|"char"]
 DOT "\."
 SIN_QUOTE "\'"
-
 %%
 struct {return STRUCT;}
 if {return IF;}
@@ -44,12 +46,12 @@ return {return RETURN;}
 "{" {return LC;}
 "}" {return RC;}
 int|float|char {return TYPE;}
-\n {}
+\n {line++;}
 [\t\r ]+ {}
 0(x|X){hex_digit}+ {return HEXINT;}
-{digit}+ {return DECINT;}
+{digit}+ {yylval.integer_val = atoi(yytext); return DECINT;}
 '[^']' {return PCHAR;}
 '\\x{hex_digit}+' {return HEXCHAR;}
-{letter_}({letter_}|{digit})* {return ID;} 
-{digit}+{DOT}{digit}+ {return FLOAT;}
-
+{letter_}({letter_}|{digit})* {yylval.string_val = strdup(yytext); return ID;} 
+{digit}+{DOT}{digit}+ {yylval.float_val = atof(yytext); return FLOAT;}
+. {yyerror("Error Type A at Line:");}

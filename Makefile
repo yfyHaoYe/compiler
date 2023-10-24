@@ -7,4 +7,4 @@ splc:
 	$(CC) syntax.tab.c -lfl -o spl.out
 clean:
 	@rm -f lex.yy.c syntax.tab.c syntax.tab.h *.out
-.PHONY: calc
+.PHONY: splc

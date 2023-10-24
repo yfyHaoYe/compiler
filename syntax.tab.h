@@ -51,16 +51,16 @@ extern int yydebug;
   {
     DECINT = 258,
     HEXINT = 259,
-    FLOAT = 260,
-    PCHAR = 261,
-    HEXCHAR = 262,
-    ID = 263,
-    TYPE = 264,
-    STRUCT = 265,
-    IF = 266,
-    ELSE = 267,
-    WHILE = 268,
-    RETURN = 269,
+    PCHAR = 260,
+    HEXCHAR = 261,
+    TYPE = 262,
+    STRUCT = 263,
+    IF = 264,
+    ELSE = 265,
+    WHILE = 266,
+    RETURN = 267,
+    FLOAT = 268,
+    ID = 269,
     DOT = 270,
     SEMI = 271,
     COMMA = 272,
@@ -89,7 +89,18 @@ extern int yydebug;
 
 /* Value type.  */
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
-typedef int YYSTYPE;
+union YYSTYPE
+{
+#line 7 "syntax.y"
+
+    int integer_val;
+    float float_val;
+    char* string_val;
+
+#line 101 "syntax.tab.h"
+
+};
+typedef union YYSTYPE YYSTYPE;
 # define YYSTYPE_IS_TRIVIAL 1
 # define YYSTYPE_IS_DECLARED 1
 #endif
