@@ -49,9 +49,9 @@ int|float|char {return TYPE;}
 \n {line++;}
 [\t\r ]+ {}
 0(x|X){hex_digit}+ {return HEXINT;}
-{digit}+ {yylval.integer_val = atoi(yytext); return DECINT;}
+{digit}+ {return DECINT;}
 '[^']' {return PCHAR;}
 '\\x{hex_digit}+' {return HEXCHAR;}
-{letter_}({letter_}|{digit})* {yylval.string_val = strdup(yytext); return ID;} 
-{digit}+{DOT}{digit}+ {yylval.float_val = atof(yytext); return FLOAT;}
+{letter_}({letter_}|{digit})* {return ID;} 
+{digit}+{DOT}{digit}+ {return FLOATNUM;}
 . {yyerror("Error Type A at Line:");}
