@@ -2,9 +2,12 @@ CC=gcc
 FLEX=flex
 BISON=bison
 splc:
+	@mkdir bin
+	touch bin/splc
+	@chmod +x bin/splc
 	$(BISON) -d syntax.y
 	$(FLEX) lex.l
-	$(CC) syntax.tab.c -lfl -o spl.out
+	$(CC) syntax.tab.c -lfl -o bin/splc
 clean:
-	@rm -f lex.yy.c syntax.tab.c syntax.tab.h *.out
+	@rm -rf lex.yy.c syntax.tab.c syntax.tab.h bin/
 .PHONY: splc
