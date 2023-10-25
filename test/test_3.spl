@@ -6,7 +6,7 @@ struct array
 };
 int test_3()
 {
-  length = 2
+  length = 2;
   struct array arr_0;
   arr_0.index = 0;
   arr_0.data = 'a';
