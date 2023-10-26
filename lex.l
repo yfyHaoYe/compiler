@@ -1,11 +1,14 @@
 %{
-    #define EXIT_OK 0
-    #define EXIT_FAIL 1
     #include "syntax.tab.h"
-    #include "stdlib.h"
-    #include "string.h"
-    extern int yyerror(const char *s);
+    #include "lex_interface.h"
+    #include <stdbool.h>
+    #include <stdarg.h>
+    #include <stdio.h>
+    #include <stdlib.h>
+    #include <string.h>
+    void lexError(const char *s);
     int line = 1;
+    bool error = false;
 %}
 letter [a-zA-Z]
 letter_ {letter}|_
@@ -53,5 +56,10 @@ int|float|char {return TYPE;}
 '[^']' {return PCHAR;}
 '\\x{hex_digit}+' {return HEXCHAR;}
 {letter_}({letter_}|{digit})* {return ID;} 
-{digit}+{DOT}{digit}+ {return FLOATNUM;}
-. {yyerror("Error Type A at Line:");}
+{digit}+{DOT}{digit}+ {return FLOAT;}
+. {lexError("Error Type A at Line:");}
+%%
+void lexError(const char *s){
+    printf("Error type A at Line: %d\n", line);
+    error = true;
+}
