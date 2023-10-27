@@ -9,7 +9,6 @@
     char* convertToDec(char*);
     int yyerror(char *);
     FILE* output_file;
-    int line = 1;
     TreeNode* createNode(char* type, char* value, int line, int numChildren, ...) {
         TreeNode* newNode = (TreeNode*)malloc(sizeof(TreeNode));
         newNode->type = strdup(type);
@@ -64,10 +63,11 @@ Program : ExtDefList {
 }
 ;
 ExtDefList : ExtDef ExtDefList {
-    $$ = createNode("ExtDefList", "", line, 2, $1, convertNull($2));
+    $$ = createNode("ExtDefList", "", line, 2, $1, $2);
 }
     | {
     $$ = createNode("ExtDefList", "", line, 0);
+    $$->empty = true;
 }
 ;
 ExtDef : Specifier ExtDecList SEMI {
@@ -83,7 +83,7 @@ ExtDecList : VarDec {
     $$ = createNode("ExtDecList", "", line, 1, $1);
 }
 | VarDec COMMA ExtDecList {
-    $$ = createNode("ExtDecList", "", line, 3, $1, createNode("COMMA", "", 0, 0), convertNull($3));
+    $$ = createNode("ExtDecList", "", line, 3, $1, createNode("COMMA", "", 0, 0), $3);
 }
 ;
 /* specifier */
@@ -105,7 +105,7 @@ VarDec : ID {
     $$ = createNode("VarDec", "", line, 1, createNode("ID", $1, 0, 0));
 }
 | VarDec LB INT RB {
-    $$ = createNode("VarDec", "", line, 4, convertNull($1), createNode("LB", "", 0, 0), createNode("INT", $3, 0, 0), createNode("RB", "", 0, 0));
+    $$ = createNode("VarDec", "", line, 4, $1, createNode("LB", "", 0, 0), createNode("INT", $3, 0, 0), createNode("RB", "", 0, 0));
 }
 FunDec : ID LP VarList RP {
     $$ = createNode("FunDec", "", line, 4, createNode("ID", $1, 0, 0), createNode("LP", "", 0, 0), $3, createNode("RP", "", 0, 0));
@@ -126,14 +126,15 @@ ParamDec : Specifier VarDec {
 ;
 /* statement */
 CompSt : LC DefList StmtList RC {
-    $$ = createNode("CompSt", "", line, 4, createNode("LC", "", 0, 0), convertNull($2), $3, createNode("RC", "", 0, 0));
+    $$ = createNode("CompSt", "", line, 4, createNode("LC", "", 0, 0), $2, $3, createNode("RC", "", 0, 0));
 }
 ;
 StmtList : Stmt StmtList {
-    $$ = createNode("StmtList", "", line, 2, $1, convertNull($2));
+    $$ = createNode("StmtList", "", line, 2, $1, $2);
 }
 |  {
     $$ = createNode("StmtList", "", line, 0);
+    $$->empty = true;
 }
 ;
 Stmt : Exp SEMI {
@@ -157,10 +158,11 @@ Stmt : Exp SEMI {
 ;
 /* local definition */
 DefList : Def DefList {
-    $$ = createNode("DefList", "", line, 2, $1, convertNull($2));
+    $$ = createNode("DefList", "", line, 2, $1, $2);
 }
 |  {
     $$ = createNode("DefList", "", line, 0);
+    $$->empty = true;
 }
 ;
 Def : Specifier DecList SEMI {
@@ -171,7 +173,7 @@ DecList : Dec {
     $$ = createNode("DecList", "", line, 1, $1);
 }
 | Dec COMMA DecList {
-    $$ = createNode("DecList", "", line, 3, $1, createNode("COMMA", "", 0, 0), convertNull($3));
+    $$ = createNode("DecList", "", line, 3, $1, createNode("COMMA", "", 0, 0), $3);
 }
 ;
 Dec : VarDec {
@@ -183,62 +185,62 @@ Dec : VarDec {
 ;
 /* Expression */
 Exp : Exp ASSIGN Exp {
-    $$ = createNode("Exp", "", line, 3, convertNull($1), createNode("ASSIGN", "", 0, 0), convertNull($3));
+    $$ = createNode("Exp", "", line, 3, $1, createNode("ASSIGN", "", 0, 0), $3);
 }
 | Exp AND Exp {
-    $$ = createNode("Exp", "", line, 3, convertNull($1), createNode("AND", "", 0, 0), convertNull($3));
+    $$ = createNode("Exp", "", line, 3, $1, createNode("AND", "", 0, 0), $3);
 }
 | Exp OR Exp {
-    $$ = createNode("Exp", "", line, 3, convertNull($1), createNode("OR", "", 0, 0), convertNull($3));
+    $$ = createNode("Exp", "", line, 3, $1, createNode("OR", "", 0, 0), $3);
 }
 | Exp LT Exp {
-    $$ = createNode("Exp", "", line, 3, convertNull($1), createNode("LT", "", 0, 0), convertNull($3));
+    $$ = createNode("Exp", "", line, 3, $1, createNode("LT", "", 0, 0), $3);
 }
 | Exp LE Exp {
-    $$ = createNode("Exp", "", line, 3, convertNull($1), createNode("LE", "", 0, 0), convertNull($3));
+    $$ = createNode("Exp", "", line, 3, $1, createNode("LE", "", 0, 0), $3);
 }
 | Exp GT Exp {
-    $$ = createNode("Exp", "", line, 3, convertNull($1), createNode("GT", "", 0, 0), convertNull($3));
+    $$ = createNode("Exp", "", line, 3, $1, createNode("GT", "", 0, 0), $3);
 }
 | Exp GE Exp {
-    $$ = createNode("Exp", "", line, 3, convertNull($1), createNode("GE", "", 0, 0), convertNull($3));
+    $$ = createNode("Exp", "", line, 3, $1, createNode("GE", "", 0, 0), $3);
 }
 | Exp NE Exp {
-    $$ = createNode("Exp", "", line, 3, convertNull($1), createNode("NE", "", 0, 0), convertNull($3));
+    $$ = createNode("Exp", "", line, 3, $1, createNode("NE", "", 0, 0),$3);
 }
 | Exp EQ Exp {
-    $$ = createNode("Exp", "", line, 3, convertNull($1), createNode("EQ", "", 0, 0), convertNull($3));
+    $$ = createNode("Exp", "", line, 3, $1, createNode("EQ", "", 0, 0), $3);
 }
 | Exp PLUS Exp {
-    $$ = createNode("Exp", "", line, 3, convertNull($1), createNode("PLUS", "", 0, 0), convertNull($3));
+    $$ = createNode("Exp", "", line, 3, $1, createNode("PLUS", "", 0, 0), $3);
 }
 | Exp MINUS Exp {
-    $$ = createNode("Exp", "", line, 3, convertNull($1), createNode("MINUS", "", 0, 0), convertNull($3));
+    $$ = createNode("Exp", "", line, 3, $1, createNode("MINUS", "", 0, 0),$3);
 }
 | Exp MUL Exp {
-    $$ = createNode("Exp", "", line, 3, convertNull($1), createNode("MUL", "", 0, 0), convertNull($3));
+    $$ = createNode("Exp", "", line, 3, $1, createNode("MUL", "", 0, 0), $3);
 }
 | Exp DIV Exp {
-    $$ = createNode("Exp", "", line, 3, convertNull($1), createNode("DIV", "", 0, 0), convertNull($3));
+    $$ = createNode("Exp", "", line, 3, $1, createNode("DIV", "", 0, 0), $3);
 }
 | LP Exp RP {
-    $$ = createNode("Exp", "", line, 3, createNode("LP", "", 0, 0), convertNull($2), createNode("RP", "", 0, 0));
+    $$ = createNode("Exp", "", line, 3, createNode("LP", "", 0, 0), $2, createNode("RP", "", 0, 0));
 }
 | MINUS Exp {
-    $$ = createNode("Exp", "", line, 2, createNode("MINUS", "", 0, 0), convertNull($2));
+    $$ = createNode("Exp", "", line, 2, createNode("MINUS", "", 0, 0), $2);
 }
 | NOT Exp {
-    $$ = createNode("Exp", "", line, 2, createNode("NOT", "", 0, 0), convertNull($2));
+    $$ = createNode("Exp", "", line, 2, createNode("NOT", "", 0, 0), $2);
 }
 
 | ID LP RP {
     $$ = createNode("Exp", "", line, 3, createNode("ID", $1, 0, 0), createNode("LP", "", 0, 0), createNode("RP", "", 0, 0));
 }
 | Exp LB Exp RB {
-    $$ = createNode("Exp", "", line, 4, convertNull($1), createNode("LB", "", 0, 0), convertNull($3), createNode("RB", "", 0, 0));
+    $$ = createNode("Exp", "", line, 4, $1, createNode("LB", "", 0, 0), $3, createNode("RB", "", 0, 0));
 }
 | Exp DOT ID {
-    $$ = createNode("Exp", "", line, 3, convertNull($1), createNode("DOT", "", 0, 0), createNode("ID", $3, 0, 0));
+    $$ = createNode("Exp", "", line, 3, $1, createNode("DOT", "", 0, 0), createNode("ID", $3, 0, 0));
 }
 | ID {
     $$ = createNode("Exp", "", line, 1, createNode("ID", $1, 0, 0));
@@ -260,7 +262,7 @@ Exp : Exp ASSIGN Exp {
 }
 ;
 Args : Exp COMMA Args {
-    $$ = createNode("Args", "", line, 3, $1, createNode("COMMA", "", 0, 0), convertNull($3));
+    $$ = createNode("Args", "", line, 3, $1, createNode("COMMA", "", 0, 0), $3);
 }
 | Exp {
     $$ = createNode("Args", "", line, 1, $1);
@@ -272,7 +274,6 @@ INT: DECINT{$$ = strdup($1);}
 CHAR: PCHAR {$$ = strdup($1);}
 | HEXCHAR {$$ = strdup($1);}
 ;
-ChangeLine: EOL {line++;};
 %%
 
 

@@ -6,6 +6,7 @@
     #include <stdio.h>
     #include <stdlib.h>
     #include <string.h>
+    int line = 1;
     void lexError(const char *s);
     bool error = false;
 %}
@@ -47,8 +48,9 @@ return {return RETURN;}
 "]" {return RB;}
 "{" {return LC;}
 "}" {return RC;}
+{DOT} {return DOT;}
 int|float|char {yylval.string = strdup(yytext);return TYPE;}
-\n {return EOL;}
+\n {line++;}
 [\t\r ]+ {}
 0(x|X){hex_digit}+ {yylval.string = strdup(yytext); return HEXINT;}
 {digit}+ {yylval.string = strdup(yytext); return DECINT;}
@@ -56,4 +58,5 @@ int|float|char {yylval.string = strdup(yytext);return TYPE;}
 '\\x{hex_digit}+' {yylval.string = strdup(yytext); return HEXCHAR;}
 {letter_}({letter_}|{digit})* {yylval.string = strdup(yytext); return ID;} 
 {digit}+{DOT}{digit}+ {yylval.string = strdup(yytext); return FLOAT;}
+
 %%

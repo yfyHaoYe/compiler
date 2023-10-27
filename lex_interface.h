@@ -3,5 +3,6 @@
 #define EXIT_OK 0
 #define EXIT_FAIL 1
 #include <stdbool.h>
+extern int line;
 extern bool error;
 #endif
