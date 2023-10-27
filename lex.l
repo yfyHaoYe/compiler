@@ -58,5 +58,5 @@ int|float|char {yylval.string = strdup(yytext);return TYPE;}
 '\\x{hex_digit}+' {yylval.string = strdup(yytext); return HEXCHAR;}
 {letter_}({letter_}|{digit})* {yylval.string = strdup(yytext); return ID;} 
 {digit}+{DOT}{digit}+ {yylval.string = strdup(yytext); return FLOAT;}
-
+. { printf("Error type A at Line %d: Unknown characters \'%s\'\n", yylineno, yytext); }
 %%
