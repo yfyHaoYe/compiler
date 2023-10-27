@@ -1,0 +1,6 @@
+lex.yy.c
+syntax.tab.h
+syntax.tab.c
+syntax.txt
+token.txt
+spl.out
