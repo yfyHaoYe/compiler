@@ -5,10 +5,11 @@
     #include <string.h>
     #include "lex_interface.h"
     #include <stdbool.h>
+    int yydebug = 1;
     char* convertToDec(char*);
     int yyerror(char *);
     FILE* output_file;
-
+    int line = 1;
     TreeNode* createNode(char* type, char* value, int line, int numChildren, ...) {
         TreeNode* newNode = (TreeNode*)malloc(sizeof(TreeNode));
         newNode->type = strdup(type);
@@ -16,7 +17,7 @@
         newNode->line = line;
         newNode->numChildren = numChildren;
         newNode->empty = false;
-        printf("%s %s %d\n", type, value, line);
+        //printf("%s %s %d\n", type, value, line);
         if (numChildren > 0) {
             va_list args;
             va_start(args, numChildren);
@@ -39,7 +40,7 @@
 
     void printParseTree(TreeNode* node, int level);
 
-    char* num;
+    char num[50];
 
 %}
 %union {
@@ -48,9 +49,8 @@
 }
 %type<string> INT CHAR
 %token<string> TYPE ID FLOAT DECINT HEXINT PCHAR HEXCHAR
-%token<string> LP RP LB RB LC RC SEMI COMMA ASSIGN STRUCT RETURN IF ELSE WHILE
-%token<string> AND OR NOT LT LE GT GE NE EQ PLUS MINUS MUL DIV DOT
-%type<node> Program ExtDefList ExtDef ExtDecList Specifier StructSpecifier VarDec FunDec VarList ParamDec CompSt StmtList Stmt DefList Def DecList Dec Exp
+%token LP RP LB RB LC RC SEMI COMMA ASSIGN STRUCT RETURN IF ELSE WHILE AND OR NOT LT LE GT GE NE EQ PLUS MINUS MUL DIV DOT EOL
+%type<node> Program ExtDefList ExtDef ExtDecList Specifier StructSpecifier VarDec FunDec VarList ParamDec CompSt StmtList Stmt DefList Def DecList Dec Exp Args
 %%
 Program : ExtDefList {
     $$ = createNode("Program", "", line, 1, $1);
@@ -108,14 +108,14 @@ VarDec : ID {
     $$ = createNode("VarDec", "", line, 4, convertNull($1), createNode("LB", "", 0, 0), createNode("INT", $3, 0, 0), createNode("RB", "", 0, 0));
 }
 FunDec : ID LP VarList RP {
-    $$ = createNode("FunDec", "", line, 4, createNode("ID", $2, 0, 0), createNode("LP", "", 0, 0), $3, createNode("RP", "", 0, 0));
+    $$ = createNode("FunDec", "", line, 4, createNode("ID", $1, 0, 0), createNode("LP", "", 0, 0), $3, createNode("RP", "", 0, 0));
 }
 | ID LP RP {
     $$ = createNode("FunDec", "", line, 3, createNode("ID", $1, 0, 0), createNode("LP", "", 0, 0), createNode("RP", "", 0, 0));
 }
 ;
 VarList : ParamDec COMMA VarList {
-    $$ = createNode("VarList", "", line, 3, $1, createNode("COMMA", "", 0, 0), convertNull($3));
+    $$ = createNode("VarList", "", line, 3, $1, createNode("COMMA", "", 0, 0), $3);
 }
 | ParamDec {
     $$ = createNode("VarList", "", line, 1, $1);
@@ -126,7 +126,7 @@ ParamDec : Specifier VarDec {
 ;
 /* statement */
 CompSt : LC DefList StmtList RC {
-    $$ = createNode("CompSt", "", line, 4, createNode("LC", "", 0, 0), $2, $3, createNode("RC", "", 0, 0));
+    $$ = createNode("CompSt", "", line, 4, createNode("LC", "", 0, 0), convertNull($2), $3, createNode("RC", "", 0, 0));
 }
 ;
 StmtList : Stmt StmtList {
@@ -146,13 +146,13 @@ Stmt : Exp SEMI {
     $$ = createNode("Stmt", "", line, 3, createNode("RETURN", "", 0, 0), $2, createNode("SEMI", "", 0, 0));
 }
 | IF LP Exp RP Stmt {
-    $$ = createNode("Stmt", "", line, 5, createNode("IF", "", 0, 0), createNode("LP", "", 0, 0), $3, createNode("RP", "", 0, 0), convertNull($5));
+    $$ = createNode("Stmt", "", line, 5, createNode("IF", "", 0, 0), createNode("LP", "", 0, 0), $3, createNode("RP", "", 0, 0), $5);
 }
 | IF LP Exp RP Stmt ELSE Stmt {
-    $$ = createNode("Stmt", "", line, 7, createNode("IF", "", 0, 0), createNode("LP", "", 0, 0), $3, createNode("RP", "", 0, 0), convertNull($5), createNode("ELSE", "", 0, 0), convertNull($7));
+    $$ = createNode("Stmt", "", line, 7, createNode("IF", "", 0, 0), createNode("LP", "", 0, 0), $3, createNode("RP", "", 0, 0), $5, createNode("ELSE", "", 0, 0), $5);
 }
 | WHILE LP Exp RP Stmt {
-    $$ = createNode("Stmt", "", line, 5, createNode("WHILE", "", 0, 0), createNode("LP", "", 0, 0), $3, createNode("RP", "", 0, 0), convertNull($5));
+    $$ = createNode("Stmt", "", line, 5, createNode("WHILE", "", 0, 0), createNode("LP", "", 0, 0), $3, createNode("RP", "", 0, 0), $5);
 }
 ;
 /* local definition */
@@ -252,6 +252,19 @@ Exp : Exp ASSIGN Exp {
 | CHAR {
     $$ = createNode("Exp", "", 1, line, createNode("CHAR", $1, 0, 0));
 }
+| ID LP Args RP {
+    $$ = createNode("Exp", "", line, 4, createNode("ID", $1, 0, 0), createNode("LP", "", 0, 0), $3, createNode("RP", "", 0, 0));
+}
+|Args {
+    $$ = createNode("Exp", "", 0, 1, $1);
+}
+;
+Args : Exp COMMA Args {
+    $$ = createNode("Args", "", line, 3, $1, createNode("COMMA", "", 0, 0), convertNull($3));
+}
+| Exp {
+    $$ = createNode("Args", "", line, 1, $1);
+}
 ;
 INT: DECINT{$$ = strdup($1);} 
 | HEXINT {$$ = strdup(convertToDec($1));}
@@ -259,6 +272,7 @@ INT: DECINT{$$ = strdup($1);}
 CHAR: PCHAR {$$ = strdup($1);}
 | HEXCHAR {$$ = strdup($1);}
 ;
+ChangeLine: EOL {line++;};
 %%
 
 
@@ -279,18 +293,23 @@ char* convertToDec(char* hexStr) {
 }
 
 void printParseTree(TreeNode* node, int level) {
+    if(node == NULL) return;
     if(!node->empty){
         for (int i = 0; i < level; i++) {
-            fprintf(output_file, "  ");
+            //fprintf(output_file, "  ");
+            printf("  ");
         }
-        if(line == 0){
+        if(node->line == 0){
             if(strlen(node->value) == 0){
-                fprintf(output_file, "%s\n", node->type);
+                //fprintf(output_file, "%s\n", node->type);
+                printf("%s\n", node->type);
             }else{
-                fprintf(output_file, "%s: %s\n", node->type, node->value);
+                //fprintf(output_file, "%s: %s\n", node->type, node->value);
+                printf("%s: %s\n", node->type, node->value);
             }
         }
-        else fprintf(output_file, "%s:%d\n", node->type, node->line);
+        //else fprintf(output_file, "%s:%d\n", node->type, node->line);
+        else printf("%s (%d)\n", node->type, node->line);
     }
 
     for (int i = 0; i < node->numChildren; i++) {
@@ -303,10 +322,10 @@ int yyerror(char *s) {
     error = true;
     return 0;
 }
-/* int main() {
+int main() {
     yyparse();
-} */
-int main(int argc, char **argv){
+}
+/* int main(int argc, char **argv){
     char *file_path;
     if(argc < 2){
         fprintf(stderr, "Usage: %s <file_path>\n", argv[0]);
@@ -323,4 +342,4 @@ int main(int argc, char **argv){
         fputs("Too many arguments! Expected: 2.\n", stderr);
         return EXIT_FAIL;
     }
-}
+} */

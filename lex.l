@@ -7,7 +7,6 @@
     #include <stdlib.h>
     #include <string.h>
     void lexError(const char *s);
-    int line = 1;
     bool error = false;
 %}
 letter [a-zA-Z]
@@ -48,18 +47,13 @@ return {return RETURN;}
 "]" {return RB;}
 "{" {return LC;}
 "}" {return RC;}
-int|float|char {return TYPE;}
-\n {line++;}
+int|float|char {yylval.string = strdup(yytext);return TYPE;}
+\n {return EOL;}
 [\t\r ]+ {}
-0(x|X){hex_digit}+ {return HEXINT;}
-{digit}+ {return DECINT;}
-'[^']' {return PCHAR;}
-'\\x{hex_digit}+' {return HEXCHAR;}
-{letter_}({letter_}|{digit})* {return ID;} 
-{digit}+{DOT}{digit}+ {return FLOAT;}
-. {lexError("Error Type A at Line:");}
+0(x|X){hex_digit}+ {yylval.string = strdup(yytext); return HEXINT;}
+{digit}+ {yylval.string = strdup(yytext); return DECINT;}
+'[^']' {yylval.string = strdup(yytext); return PCHAR;}
+'\\x{hex_digit}+' {yylval.string = strdup(yytext); return HEXCHAR;}
+{letter_}({letter_}|{digit})* {yylval.string = strdup(yytext); return ID;} 
+{digit}+{DOT}{digit}+ {yylval.string = strdup(yytext); return FLOAT;}
 %%
-void lexError(const char *s){
-    printf("Error type A at Line: %d\n", line);
-    error = true;
-}
