@@ -1,13 +1,11 @@
 %{
     #include "syntax.tab.h"
-    #include "lex_interface.h"
     #include <stdbool.h>
     #include <stdarg.h>
     #include <stdio.h>
     #include <stdlib.h>
     #include <string.h>
     int line = 1;
-    void lexError(const char *s);
     bool error = false;
 %}
 letter [a-zA-Z]
@@ -21,45 +19,46 @@ TYPE  ["int"|"float"|"char"]
 DOT "\."
 SIN_QUOTE "\'"
 %%
-"//" { char c; while((c=input()) != '\n'); }
-"/*"[^*/]"*/" {  }
-struct {return STRUCT;}
-if {return IF;}
-else {return ELSE;}
-while {return WHILE;}
-return {return RETURN;}
-";" {return SEMI;}
-"," {return COMMA;}
-"=" {return ASSIGN;}
-"<" {return LT;}
-"<=" {return LE;}
-">" {return GT;}
-">=" {return GE;}
-"!=" {return NE;}
-"==" {return EQ;}
-"+" {return PLUS;}
-"-" {return MINUS;}
-"*" {return MUL;}
-"/" {return DIV;}
-"&&" {return AND;}
-"||" {return OR;}
-"!" {return NOT;}
-"(" {return LP;}
-")" {return RP;}
-"[" {return LB;}
-"]" {return RB;}
-"{" {return LC;}
-"}" {return RC;}
-{DOT} {return DOT;}
-int|float|char|string {yylval.string = strdup(yytext);return TYPE;}
+struct {yylval.str_line.line = line;return STRUCT;}
+if {yylval.str_line.line = line;return IF;}
+else {yylval.str_line.line = line;return ELSE;}
+while {yylval.str_line.line = line;return WHILE;}
+return {yylval.str_line.line = line;return RETURN;}
+";" {yylval.str_line.line = line;return SEMI;}
+"," {yylval.str_line.line = line;return COMMA;}
+"=" {yylval.str_line.line = line;return ASSIGN;}
+"<" {yylval.str_line.line = line;return LT;}
+"<=" {yylval.str_line.line = line;return LE;}
+">" {yylval.str_line.line = line;return GT;}
+">=" {yylval.str_line.line = line;return GE;}
+"!=" {yylval.str_line.line = line;return NE;}
+"==" {yylval.str_line.line = line;return EQ;}
+"+" {yylval.str_line.line = line;return PLUS;}
+"-" {yylval.str_line.line = line;return MINUS;}
+"*" {yylval.str_line.line = line;return MUL;}
+"/" {yylval.str_line.line = line;return DIV;}
+"&&" {yylval.str_line.line = line;return AND;}
+"||" {yylval.str_line.line = line;return OR;}
+"!" {yylval.str_line.line = line;return NOT;}
+"(" {yylval.str_line.line = line;return LP;}
+")" {yylval.str_line.line = line;return RP;}
+"[" {yylval.str_line.line = line;return LB;}
+"]" {yylval.str_line.line = line;return RB;}
+"{" {yylval.str_line.line = line;return LC;}
+"}" {yylval.str_line.line = line;return RC;}
+{DOT} {yylval.str_line.line = line;return DOT;}
+int|float|char|string {yylval.str_line.string = strdup(yytext);yylval.str_line.line = line;return TYPE;}
 \n {line++;}
 [\t\r ]+ {}
-\"[^\"|\\"]*\" {yylval.string = strdup(yytext);return STR;}
-0(x|X){hex_digit}+ {yylval.string = strdup(yytext); return HEXINT;}
-{digit}+ {yylval.string = strdup(yytext); return DECINT;}
-'[^']' {yylval.string = strdup(yytext); return PCHAR;}
-'\\x{hex_digit}+' {yylval.string = strdup(yytext); return HEXCHAR;}
-{letter_}({letter_}|{digit})* {yylval.string = strdup(yytext); return ID;} 
-{digit}+{DOT}{digit}+ {yylval.string = strdup(yytext); return FLOAT;}
-. { printf("Error type A at Line %d: Unknown characters \'%s\'\n", yylineno, yytext); }
+0(x|X){hex_digit}+ {yylval.str_line.string = strdup(yytext); yylval.str_line.line = line; return HEXINT;}
+{digit}+ {yylval.str_line.string = strdup(yytext);yylval.str_line.line = line; return DECINT;}
+'[^']' {yylval.str_line.string = strdup(yytext);yylval.str_line.line = line; return PCHAR;}
+'\\x{hex_digit}+' {yylval.str_line.string = strdup(yytext);yylval.str_line.line = line; return HEXCHAR;} 
+{digit}+{DOT}{digit}+ {yylval.str_line.string = strdup(yytext);yylval.str_line.line = line; return FLOAT;}
+{letter_}({letter_}|{digit})* {yylval.str_line.string = strdup(yytext);yylval.str_line.line = line; return ID;}
+({letter_}|{digit})+{letter_}+ {printf("Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext); error = true; return ID;}
+\"[^\"]*\" {yylval.str_line.string = strdup(yytext);yylval.str_line.line = line;return STR;}
+"&"|"|" {printf("Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext); error = true;return AND;}
+[^\'\"\\] {printf("Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext); error = true; return STR;}
+'\\x[^{hex_digit}]+' {printf("Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext); error = true; return STR;}
 %%
