@@ -351,7 +351,7 @@ void printParseTree(TreeNode* node, int level) {
             }
         }
         else {
-            fprintf(output_file, "%s:%d\n", node->type, node->line);
+            fprintf(output_file, "%s (%d)\n", node->type, node->line);
             printf("%s (%d)\n", node->type, node->line);
         }
     }
