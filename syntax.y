@@ -9,6 +9,7 @@
     char* convertToDec(char*);
     int yyerror(char *);
     FILE* output_file;
+    char* input_path;
     TreeNode* createNode(char* type, char* value, int line, int numChildren, ...) {
         TreeNode* newNode = (TreeNode*)malloc(sizeof(TreeNode));
         newNode->type = strdup(type);
@@ -38,6 +39,7 @@
     }
 
     void printParseTree(TreeNode* node, int level);
+    void getOutputPath(const char *input_path, char *output_path, size_t output_path_size);
 
     char num[50];
 
@@ -63,7 +65,9 @@
 %%
 Program : ExtDefList {
     $$ = createNode("Program", "", line, 1, $1);
-    output_file = fopen("output.out", "w");
+    char output_file_path[256];
+    getOutputPath(input_path, output_file_path, sizeof(output_file_path));
+    output_file = fopen(output_file_path, "w");
     if (output_file == NULL) {
         perror("Unable to open output file");
         exit(1);
@@ -309,6 +313,15 @@ CHAR: PCHAR {$$ = strdup($1);}
 ;
 %%
 
+void getOutputPath(const char *input_path, char *output_path, size_t output_path_size) {
+    char *file_extension = strstr(input_path, ".spl");
+    if (file_extension != NULL) {
+        size_t new_filename_length = file_extension - input_path;
+        snprintf(output_path, output_path_size, "%.*s%s", (int)new_filename_length, input_path, ".out");
+    } else {
+        strncpy(output_path, input_path, output_path_size);
+    }
+}
 
 char* convertToDec(char* hexStr) {
     int dec = 0;
@@ -330,20 +343,22 @@ void printParseTree(TreeNode* node, int level) {
     if(node == NULL) return;
     if(!node->empty){
         for (int i = 0; i < level; i++) {
-            //fprintf(output_file, "  ");
+            fprintf(output_file, "  ");
             printf("  ");
         }
         if(node->line == 0){
             if(strlen(node->value) == 0){
-                //fprintf(output_file, "%s\n", node->type);
+                fprintf(output_file, "%s\n", node->type);
                 printf("%s\n", node->type);
             }else{
-                //fprintf(output_file, "%s: %s\n", node->type, node->value);
+                fprintf(output_file, "%s: %s\n", node->type, node->value);
                 printf("%s: %s\n", node->type, node->value);
             }
         }
-        //else fprintf(output_file, "%s:%d\n", node->type, node->line);
-        else printf("%s (%d)\n", node->type, node->line);
+        else {
+            fprintf(output_file, "%s (%d)\n", node->type, node->line);
+            printf("%s (%d)\n", node->type, node->line);
+        }
     }
 
     for (int i = 0; i < node->numChildren; i++) {
@@ -366,6 +381,7 @@ int main(int argc, char **argv){
         return EXIT_FAIL;
     } else if(argc == 2){
         file_path = argv[1];
+        input_path = argv[1];
         if(!(yyin = fopen(file_path, "r"))){
             perror(argv[1]);
             return EXIT_FAIL;
