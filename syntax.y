@@ -8,8 +8,7 @@
     int yydebug = 1;
     char* convertToDec(char*);
     int yyerror(const char *);
-    FILE* output_file;
-    char* input_path;
+
     TreeNode* createNode(char* type, char* value, int line, int numChildren, ...) {
         TreeNode* newNode = (TreeNode*)malloc(sizeof(TreeNode));
         newNode->type = strdup(type);
@@ -67,15 +66,11 @@
 %%
 Program : ExtDefList {
     $$ = createNode("Program", "", $1->line, 1, $1);
-    char output_file_path[256];
-    getOutputPath(input_path, output_file_path, sizeof(output_file_path));
-    output_file = fopen(output_file_path, "w");
     if (output_file == NULL) {
         perror("Unable to open output file");
         exit(1);
     }
     if(!error){printParseTree($$, 0);}
-    fclose(output_file);
 }
 ;
 ExtDefList : ExtDef ExtDefList {
@@ -402,6 +397,8 @@ int yyerror(const char *msg) {
     char* syntax_error = "syntax error";
     if(strcmp(msg, syntax_error) != 0){
         printf("Error type B at Line %d:%s\n", line, msg);
+        fprintf(output_file, "Error type B at Line %d:%s\n", line, msg);
+
     }
     error = true;
     return 0;
@@ -416,12 +413,15 @@ int main(int argc, char **argv){
         return EXIT_FAIL;
     } else if(argc == 2){
         file_path = argv[1];
-        input_path = argv[1];
+        char output_file_path[256];
+        getOutputPath(file_path, output_file_path, sizeof(output_file_path));
+        output_file = fopen(output_file_path, "w");
         if(!(yyin = fopen(file_path, "r"))){
             perror(argv[1]);
             return EXIT_FAIL;
         }
         yyparse();
+        fclose(output_file);
         return EXIT_OK;
     } else{
         fputs("Too many arguments! Expected: 2.\n", stderr);
