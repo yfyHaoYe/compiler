@@ -16,7 +16,7 @@
         newNode->line = line;
         newNode->numChildren = numChildren;
         newNode->empty = false;
-        printf("type: %s, value: %s, line: %d\n", type, value, line);
+        // printf("type: %s, value: %s, line: %d\n", type, value, line);
         if (numChildren > 0) {
             va_list args;
             va_start(args, numChildren);
@@ -47,7 +47,7 @@
     char* string;
 }
 %type<string> INT CHAR
-%token<string> TYPE ID FLOAT DECINT HEXINT PCHAR HEXCHAR
+%token<string> TYPE ID FLOAT DECINT HEXINT PCHAR HEXCHAR STR
 %token LC RC SEMI COMMA STRUCT RETURN WHILE EOL IF ELSE
 %type<node> Program ExtDefList ExtDef ExtDecList Specifier StructSpecifier VarDec FunDec VarList ParamDec CompSt StmtList Stmt DefList Def DecList Dec Exp Args
 %nonassoc LOWER_ELSE
@@ -92,6 +92,7 @@ ExtDef : Specifier ExtDecList SEMI {
     $$ = createNode("ExtDef", "", line, 3, $1, $2, $3);
 }
 ;
+
 ExtDecList : VarDec {
     $$ = createNode("ExtDecList", "", line, 1, $1);
 }
@@ -108,6 +109,7 @@ Specifier : TYPE {
     $$ = createNode("Specifier", "", line, 1, $1);
 }
 ;
+
 StructSpecifier : STRUCT ID LC DefList RC {
     $$ = createNode("StructSpecifier", "", line, 5, createNode("STRUCT", "", 0, 0), createNode("ID", $2, 0, 0), createNode("LC", "", 0, 0), $4, createNode("RC", "", 0, 0));
 }
@@ -281,6 +283,9 @@ Exp : Exp ASSIGN Exp {
 }
 | CHAR {
     $$ = createNode("Exp", "", 1, line, createNode("CHAR", $1, 0, 0));
+}
+| STR {
+    $$ = createNode("Exp", "", 1, line, createNode("STR", $1, 0, 0));
 }
 | ID LP Args RP {
     $$ = createNode("Exp", "", line, 4, createNode("ID", $1, 0, 0), createNode("LP", "", 0, 0), $3, createNode("RP", "", 0, 0));

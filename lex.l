@@ -21,6 +21,8 @@ TYPE  ["int"|"float"|"char"]
 DOT "\."
 SIN_QUOTE "\'"
 %%
+"//" { char c; while((c=input()) != '\n'); }
+"/*"[^*/]"*/" {  }
 struct {return STRUCT;}
 if {return IF;}
 else {return ELSE;}
@@ -49,9 +51,10 @@ return {return RETURN;}
 "{" {return LC;}
 "}" {return RC;}
 {DOT} {return DOT;}
-int|float|char {yylval.string = strdup(yytext);return TYPE;}
+int|float|char|string {yylval.string = strdup(yytext);return TYPE;}
 \n {line++;}
 [\t\r ]+ {}
+\"[^\"|\\"]*\" {yylval.string = strdup(yytext);return STR;}
 0(x|X){hex_digit}+ {yylval.string = strdup(yytext); return HEXINT;}
 {digit}+ {yylval.string = strdup(yytext); return DECINT;}
 '[^']' {yylval.string = strdup(yytext); return PCHAR;}
