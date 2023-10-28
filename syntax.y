@@ -192,7 +192,7 @@ Stmt : Exp SEMI {
 | RETURN Exp error {
     yyerror("Missing semicolon ';'");
 }
-| IF LP Exp error Stmt {
+| IF LP Exp error Stmt %prec LOWER_ELSE{
     yyerror("Missing closing parenthesis ')'");
 }
 | IF LP Exp error Stmt ELSE Stmt{

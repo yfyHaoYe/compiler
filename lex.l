@@ -69,14 +69,16 @@ int|float|char|string {yylval.str_line.string = strdup(yytext);yylval.str_line.l
 {digit}+{DOT}{digit}+ {yylval.str_line.string = strdup(yytext);yylval.str_line.line = line; return FLOAT;}
 {letter_}({letter_}|{digit})* {yylval.str_line.string = strdup(yytext);yylval.str_line.line = line; return ID;}
 ({letter_}|{digit})+{letter_}+ {printf("Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext);
-                                    fprintf(output_file, "Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext); error = true; return ID;}}
+                                    fprintf(output_file, "Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext); error = true; return ID;}
 \"[^\"]*\" {
     if(yytext[yyleng-2] == '\\') {
         yyless(yyleng-1);
         yymore();
     } else {
     /* process the string literal */
-        yylval.str_line.string = strdup(yytext);yylval.str_line.line = line;return STR;
+        yylval.str_line.string = strdup(yytext);
+        yylval.str_line.line = line;
+        return STR;
     }
 }
 "&"|"|" {printf("Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext);
@@ -86,5 +88,5 @@ int|float|char|string {yylval.str_line.string = strdup(yytext);yylval.str_line.l
 '\\x[^{hex_digit}]+' {printf("Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext);
     fprintf(output_file, "Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext); error = true; return STR;}
 . { printf("Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext);
-    fprintf(output_file, "Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext); error = true; return STR }
+    fprintf(output_file, "Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext); error = true; return STR; }
 %%
