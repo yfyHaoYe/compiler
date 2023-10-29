@@ -1,0 +1,15 @@
+// This is a single line comment
+int test_1(int a, int b)
+{
+  c = 'c';
+  if (a > b)
+  {
+    return a;
+  }
+  else
+  {
+    return b;
+  }
+  //I hope there is no Bug
+}
+// this is the end of file without newline

@@ -1,0 +1,55 @@
+Program (1)
+  ExtDefList (1)
+    ExtDef (1)
+      Specifier (1)
+        TYPE: int
+      FunDec (1)
+        ID: test_3
+        LP
+        RP
+      CompSt (2)
+        LC
+        DefList (3)
+          Def (3)
+            Specifier (3)
+              TYPE: string
+            DecList (3)
+              Dec (3)
+                VarDec (3)
+                  ID: a
+              COMMA
+              DecList (3)
+                Dec (3)
+                  VarDec (3)
+                    ID: b
+                COMMA
+                DecList (3)
+                  Dec (3)
+                    VarDec (3)
+                      ID: c
+            SEMI
+        StmtList (4)
+          Stmt (4)
+            Exp (4)
+              Exp (4)
+                ID: a
+              ASSIGN
+              Exp (4)
+                STR: "This is a string."
+            SEMI
+          StmtList (5)
+            Stmt (5)
+              Exp (5)
+                Exp (5)
+                  ID: b
+                ASSIGN
+                Exp (5)
+                  STR: "KFC crazy thursday v me 50!"
+              SEMI
+            StmtList (6)
+              Stmt (6)
+                RETURN
+                Exp (6)
+                  INT: 0
+                SEMI
+        RC

@@ -16,5 +16,4 @@ int test_3()
   arr_1.data = 'b';
   arr_0.index = 2;
   arr_0.data = 'v50';
-
 }

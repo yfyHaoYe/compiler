@@ -1,0 +1,10 @@
+// multy line string is permitted!
+int test_4()
+{
+  string a, b, c;
+  a = "This is 
+        a string.";
+  b = "KFC crazy 
+            thursday v me 50!";
+  return 0;
+}

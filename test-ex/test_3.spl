@@ -1,0 +1,7 @@
+int test_3()
+{
+  string a, b, c;
+  a = "This is a string.";
+  b = "KFC crazy thursday v me 50!";
+  return 0;
+}

@@ -53,7 +53,7 @@
 %token<str_line> TYPE ID FLOAT DECINT HEXINT PCHAR HEXCHAR STR
 %token<str_line.line> LC RC SEMI COMMA STRUCT RETURN WHILE IF
 %type<node> Program ExtDefList ExtDef ExtDecList Specifier StructSpecifier VarDec FunDec VarList ParamDec CompSt StmtList Stmt DefList Def DecList Dec Exp Args ErrorStmt
-%nonassoc<node> LOWER_ELSE
+%nonassoc<node> LOWER
 %nonassoc<str_line.line> ELSE
 %nonassoc<str_line.line> ASSIGN
 %left<str_line.line> OR
@@ -91,10 +91,10 @@ ExtDef : Specifier ExtDecList SEMI {
     $$ = createNode("ExtDef", "", $1->line, 3, $1, $2, $3);
 }
 | Specifier error {
-    yyerror("Missing semicolon ';'");
+    yyerror(" Missing semicolon ';'");
 }
 | Specifier ExtDecList error {
-    yyerror("Missing semicolon ';'");
+    yyerror(" Missing semicolon ';'");
 }
 ;
 ExtDecList : VarDec {
@@ -127,7 +127,7 @@ VarDec : ID {
     $$ = createNode("VarDec", "", $1->line, 4, $1, createNode("LB", "", $2, 0), createNode("INT", $3.string, $3.line, 0), createNode("RB", "", $4, 0));
 }
 | VarDec LB INT error {
-    yyerror("Missing closing square bracket ']'");
+    yyerror(" Missing closing square bracket ']'");
 }
 ;
 FunDec : ID LP VarList RP {
@@ -137,10 +137,10 @@ FunDec : ID LP VarList RP {
     $$ = createNode("FunDec", "", $1.line, 3, createNode("ID", $1.string, $1.line, 0), createNode("LP", "", $2, 0), createNode("RP", "", $3, 0));
 }
 |ID LP VarList error {
-    yyerror("Missing closing parenthesis ')'");
+    yyerror(" Missing closing parenthesis ')'");
 }
 |ID LP error {
-    yyerror("Missing closing parenthesis ')'");
+    yyerror(" Missing closing parenthesis ')'");
 }
 ;
 VarList : ParamDec COMMA VarList {
@@ -157,9 +157,6 @@ ParamDec : Specifier VarDec {
 CompSt : LC DefList StmtList RC {
     $$ = createNode("CompSt", "", $1, 4, createNode("LC", "", $1, 0), $2, $3, createNode("RC", "", $4, 0));
 }
-| LC DefList StmtList error {
-    yyerror("Missing Specifier");
-}
 ;
 StmtList : Stmt StmtList {
     $$ = createNode("StmtList", "", $1->line, 2, $1, $2);
@@ -167,9 +164,6 @@ StmtList : Stmt StmtList {
 |  {
     $$ = createNode("StmtList", "", 0, 0);
     $$->empty = true;
-}
-| error {
-    
 }
 ;
 Stmt : Exp SEMI {
@@ -181,7 +175,7 @@ Stmt : Exp SEMI {
 | RETURN Exp SEMI {
     $$ = createNode("Stmt", "", $1, 3, createNode("RETURN", "", $1, 0), $2, createNode("SEMI", "", $3, 0));
 }
-| IF LP Exp RP Stmt %prec LOWER_ELSE {
+| IF LP Exp RP Stmt %prec LOWER {
     $$ = createNode("Stmt", "", $1, 5, createNode("IF", "", $1, 0), createNode("LP", "", $2, 0), $3, createNode("RP", "", $4, 0), $5);
 }
 | IF LP Exp RP Stmt ELSE Stmt {
@@ -191,26 +185,26 @@ Stmt : Exp SEMI {
     $$ = createNode("Stmt", "", $1, 5, createNode("WHILE", "", $1, 0), createNode("LP", "", $2, 0), $3, createNode("RP", "", $4, 0), $5);
 }
 | Exp error {
-    yyerror("Missing semicolon ';'");
+    yyerror(" Missing semicolon ';'");
 }
 | RETURN Exp error {
-    yyerror("Missing semicolon ';'");
+    yyerror(" Missing semicolon ';'");
 }
 | ErrorStmt Exp RP Stmt {}
-| ErrorStmt Stmt %prec LOWER_ELSE {}
+| ErrorStmt Stmt %prec LOWER {}
 | ErrorStmt Stmt ELSE Stmt {}
 ;
 ErrorStmt: IF LP Exp error{
-    yyerror("Missing closing parenthesis ')'");
+    yyerror(" Missing closing parenthesis ')'");
 }
 | WHILE LP Exp error {
-    yyerror("Missing closing parenthesis ')'");
+    yyerror(" Missing closing parenthesis ')'");
 }
 | WHILE error {
-    yyerror("Missing opening parenthesis '('");
+    yyerror(" Missing opening parenthesis '('");
 }
 | IF error {
-    yyerror("Missing opening parenthesis '('");
+    yyerror(" Missing opening parenthesis '('");
 }
 ;
 /* local definition */
@@ -226,7 +220,10 @@ Def : Specifier DecList SEMI {
     $$ = createNode("Def", "", $1->line, 3, $1, $2, createNode("SEMI", "", $3, 0));
 }
 | Specifier DecList error {
-    yyerror("Missing semicolon ';'");
+    yyerror(" Missing semicolon ';'");
+}
+| error DecList SEMI{
+    yyerror(" Missing Specifier");
 }
 ;
 DecList : Dec {
@@ -320,16 +317,16 @@ Exp : Exp ASSIGN Exp {
     $$ = createNode("Exp", "", $1.line, 4, createNode("ID", $1.string, $1.line, 0), createNode("LP", "", $2, 0), $3, createNode("RP", "", $2, 0));
 }
 | ID LP Args error {
-    yyerror("Missing closing parenthesis ')'");
+    yyerror(" Missing closing parenthesis ')'");
 }
 | ID LP error {
-    yyerror("Missing closing parenthesis ')'");
+    yyerror(" Missing closing parenthesis ')'");
 }
 | Exp LB Exp error {
-    yyerror("Missing closing square bracket ']'");
+    yyerror(" Missing closing square bracket ']'");
 }
 | LP Exp error {
-    yyerror("Missing closing parenthesis ')'");
+    yyerror(" Missing closing parenthesis ')'");
 }
 ;
 Args : Exp COMMA Args {
@@ -406,10 +403,9 @@ void printParseTree(TreeNode* node, int level) {
 
 int yyerror(const char *msg) {
     char* syntax_error = "syntax error";
-    if(strcmp(msg, syntax_error) != 0){
+    if(strcmp(msg, syntax_error) != 0){        
         printf("Error type B at Line %d:%s\n", line, msg);
         fprintf(output_file, "Error type B at Line %d:%s\n", line, msg);
-
     }
     error = true;
     return 0;

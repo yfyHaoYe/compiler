@@ -1,12 +1,12 @@
 int test_1_r09()
 {
   int m = 1;
-  float n = 2.2;
+  float v = 2.2;
   float f = 0.2;
   int arr[10], kfc[50];
   arr[m] = 7;
-  kfc[n] = 8;
-  n = n - f;
-  kfc[n] = 50;
+  kfc[v] = 8;
+  v = v - f;
+  kfc[v] = 50;
   return kfc[2];
 }

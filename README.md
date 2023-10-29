@@ -1,2 +1,8 @@
 # Compiler_project
-test1中是课程仓库给出的样例
+
+to test the parser, run:
+make clean
+make splc
+bin/splc "testcase_address.spl"
+
+the result will be in "testcase_address.out"

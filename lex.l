@@ -19,11 +19,20 @@ TYPE  ["int"|"float"|"char"]
 DOT "\."
 SIN_QUOTE "\'"
 %%
-"//" { char c; while((c=input()) != '\n'); line++;}
-"/*"        { BEGIN(COMMENT); }
+"//" {
+    char c; 
+    while(true){
+        c=input();
+        if (c== '\n'| c=='\0'){
+            break;
+        }
+    }; 
+    line++;
+}
+"/*" { BEGIN(COMMENT); }
 <COMMENT>{
-    "*/"    { BEGIN(INITIAL); }
-    \n    {line++;}
+    "*/" { BEGIN(INITIAL); }
+    \n {line++;}
     . {}
 } 
 struct {yylval.str_line.line = line;return STRUCT;}
@@ -79,8 +88,9 @@ int|float|char|string {yylval.str_line.string = strdup(yytext);yylval.str_line.l
     }
 }
 '[^']{1}' {yylval.str_line.string = strdup(yytext);yylval.str_line.line = line; return PCHAR;}
-'\\(x|X){hex_digit}{1,2}' {yylval.str_line.string = strdup(yytext);yylval.str_line.line = line; return HEXCHAR;} 
-
+'\\(x|X){hex_digit}{1,2}\' {yylval.str_line.string = strdup(yytext);yylval.str_line.line = line; return HEXCHAR;} 
+' { printf("Error type A at Line %d: Missing single quotation '\n", line); }
+\" { printf("Error type A at Line %d: Missing double quotation \" \n", line); }
 {digit}+{DOT}{digit}+ {yylval.str_line.string = strdup(yytext);yylval.str_line.line = line; return FLOAT;}
 {letter_}({letter_}|{digit})* {yylval.str_line.string = strdup(yytext);yylval.str_line.line = line; return ID;}
 ({letter_}|{digit})+{letter_}+ {printf("Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext);

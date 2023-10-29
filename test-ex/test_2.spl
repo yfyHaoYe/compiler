@@ -1,0 +1,24 @@
+/* This is a multyline comments
+Today is a rainy day
+but I'm happy
+Yes!!!
+*/
+int global;
+struct my_struct
+{
+  int code;
+  char data;
+};
+int test_2()
+{
+  struct my_struct obj;
+  obj.code = global;
+  global = global + 1;
+}
+
+
+/* This is a multyline comments
+Today is a rainy day
+but I'm happy
+Yes!!!
+*/
