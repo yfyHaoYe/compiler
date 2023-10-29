@@ -57,11 +57,27 @@ return {yylval.str_line.line = line;return RETURN;}
 int|float|char|string {yylval.str_line.string = strdup(yytext);yylval.str_line.line = line;return TYPE;}
 \n {line++;}
 [\t\r ]+ {}
-
-0(x|X){hex_digit}{32,} {printf("Error type A at Line %d: Integer length exceed limit 32 \'%s\'\n", line, yytext); error = true;return STR;}
-{digit}{32,} {printf("Error type A at Line %d: Integer length exceed limit 32 \'%s\'\n", line, yytext); error = true;return STR;}
-0(x|X){hex_digit}+ {yylval.str_line.string = strdup(yytext); yylval.str_line.line = line; return HEXINT;}
-{digit}+ {yylval.str_line.string = strdup(yytext);yylval.str_line.line = line; return DECINT;}
+0(x|X){hex_digit}+ {
+    if (yyleng < 35) {
+        yylval.str_line.string = strdup(yytext); 
+        yylval.str_line.line = line;
+        return HEXINT;
+    } else {
+        printf("Error type A at Line %d: Integer length exceed limit 32 \'%s\'\n", line, yytext); 
+        error = true;
+        return STR;
+    }
+}
+{digit}+ {
+    if (yyleng < 33){
+        yylval.str_line.string = strdup(yytext);
+        yylval.str_line.line = line;
+        return DECINT;
+    } else {
+        printf("Error type A at Line %d: Integer length exceed limit 32 \'%s\'\n", line, yytext);
+        error = true;return STR;
+    }
+}
 
 '[^']' {yylval.str_line.string = strdup(yytext);yylval.str_line.line = line; return PCHAR;}
 '\\(x|X){hex_digit}+' {yylval.str_line.string = strdup(yytext);yylval.str_line.line = line; return HEXCHAR;} 
@@ -69,14 +85,15 @@ int|float|char|string {yylval.str_line.string = strdup(yytext);yylval.str_line.l
 {digit}+{DOT}{digit}+ {yylval.str_line.string = strdup(yytext);yylval.str_line.line = line; return FLOAT;}
 {letter_}({letter_}|{digit})* {yylval.str_line.string = strdup(yytext);yylval.str_line.line = line; return ID;}
 ({letter_}|{digit})+{letter_}+ {printf("Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext);
-                                    fprintf(output_file, "Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext); error = true; return ID;}}
+                                    fprintf(output_file, "Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext); error = true; return ID;}
 \"[^\"]*\" {
     if(yytext[yyleng-2] == '\\') {
         yyless(yyleng-1);
         yymore();
     } else {
-    /* process the string literal */
-        yylval.str_line.string = strdup(yytext);yylval.str_line.line = line;return STR;
+        yylval.str_line.string = strdup(yytext);
+        yylval.str_line.line = line;
+        return STR;
     }
 }
 "&"|"|" {printf("Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext);
@@ -86,5 +103,5 @@ int|float|char|string {yylval.str_line.string = strdup(yytext);yylval.str_line.l
 '\\x[^{hex_digit}]+' {printf("Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext);
     fprintf(output_file, "Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext); error = true; return STR;}
 . { printf("Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext);
-    fprintf(output_file, "Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext); error = true; return STR }
+    fprintf(output_file, "Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext); error = true; return STR; }
 %%

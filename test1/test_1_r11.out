@@ -1,4 +1,3 @@
-Error type A at Line 3: unknown lexeme 0x77G
-Error type A at Line 4: unknown lexeme 0xCS
-Error type A at Line 7: unknown lexeme '\x6u'
-Error type A at Line 8: unknown lexeme '\x910'
+Error type A at Line 3: Unknown characters '0x77G'
+Error type A at Line 4: Unknown characters '0xCS'
+Error type A at Line 7: Unknown characters ''\x6u''
