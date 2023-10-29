@@ -16,7 +16,7 @@
         newNode->line = line;
         newNode->numChildren = numChildren;
         newNode->empty = false;
-        //printf("%s %s %d\n", type, value, line);
+        //printf("the node is %s %s %d\n", type, value, line);
         if (numChildren > 0) {
             va_list args;
             va_start(args, numChildren);
@@ -52,7 +52,7 @@
 %type<str_line> INT CHAR
 %token<str_line> TYPE ID FLOAT DECINT HEXINT PCHAR HEXCHAR STR
 %token<str_line.line> LC RC SEMI COMMA STRUCT RETURN WHILE IF
-%type<node> Program ExtDefList ExtDef ExtDecList Specifier StructSpecifier VarDec FunDec VarList ParamDec CompSt StmtList Stmt DefList Def DecList Dec Exp Args
+%type<node> Program ExtDefList ExtDef ExtDecList Specifier StructSpecifier VarDec FunDec VarList ParamDec CompSt StmtList Stmt DefList Def DecList Dec Exp Args ErrorStmt
 %nonassoc<node> LOWER_ELSE
 %nonassoc<str_line.line> ELSE
 %nonassoc<str_line.line> ASSIGN
@@ -90,17 +90,18 @@ ExtDef : Specifier ExtDecList SEMI {
 | Specifier FunDec CompSt {
     $$ = createNode("ExtDef", "", $1->line, 3, $1, $2, $3);
 }
+| Specifier error {
+    yyerror("Missing semicolon ';'");
+}
+| Specifier ExtDecList error {
+    yyerror("Missing semicolon ';'");
+}
+;
 ExtDecList : VarDec {
     $$ = createNode("ExtDecList", "", $1->line, 1, $1);
 }
 | VarDec COMMA ExtDecList {
     $$ = createNode("ExtDecList", "", $1->line, 3, $1, createNode("COMMA", "", $2, 0), $3);
-}
-|Specifier error {
-    yyerror("Missing semicolon ';'");
-}
-|Specifier ExtDecList error {
-    yyerror("Missing semicolon ';'");
 }
 ;
 /* specifier */
@@ -157,7 +158,7 @@ CompSt : LC DefList StmtList RC {
     $$ = createNode("CompSt", "", $1, 4, createNode("LC", "", $1, 0), $2, $3, createNode("RC", "", $4, 0));
 }
 | LC DefList StmtList error {
-    yyerror("Missing specifier");
+    yyerror("Missing Specifier");
 }
 ;
 StmtList : Stmt StmtList {
@@ -166,6 +167,9 @@ StmtList : Stmt StmtList {
 |  {
     $$ = createNode("StmtList", "", 0, 0);
     $$->empty = true;
+}
+| error {
+    
 }
 ;
 Stmt : Exp SEMI {
@@ -192,14 +196,21 @@ Stmt : Exp SEMI {
 | RETURN Exp error {
     yyerror("Missing semicolon ';'");
 }
-| IF LP Exp error Stmt %prec LOWER_ELSE{
+| ErrorStmt Exp RP Stmt {}
+| ErrorStmt Stmt %prec LOWER_ELSE {}
+| ErrorStmt Stmt ELSE Stmt {}
+;
+ErrorStmt: IF LP Exp error{
     yyerror("Missing closing parenthesis ')'");
 }
-| IF LP Exp error Stmt ELSE Stmt{
+| WHILE LP Exp error {
     yyerror("Missing closing parenthesis ')'");
 }
-| WHILE LP Exp error Stmt {
-    yyerror("Missing closing parenthesis ')'");
+| WHILE error {
+    yyerror("Missing opening parenthesis '('");
+}
+| IF error {
+    yyerror("Missing opening parenthesis '('");
 }
 ;
 /* local definition */
@@ -314,7 +325,7 @@ Exp : Exp ASSIGN Exp {
 | ID LP error {
     yyerror("Missing closing parenthesis ')'");
 }
-|Exp LB Exp error {
+| Exp LB Exp error {
     yyerror("Missing closing square bracket ']'");
 }
 | LP Exp error {
