@@ -14,7 +14,7 @@ Program (1)
             STRUCT
             ID: my_struct
             LC
-            DefList (4) 
+            DefList (4)
               Def (4)
                 Specifier (4)
                   TYPE: int
