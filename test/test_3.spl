@@ -6,14 +6,14 @@ struct array
 };
 int test_3()
 {
-  length = 2;
   struct array arr_0;
+  struct array arr_1;
+  struct arr arr_2;
+  length = 2;
   arr_0.index = 0;
   arr_0.data = 'a';
-  struct array arr_1;
   arr_1.index = 1;
   arr_1.data = 'b';
-  struct arr arr_2;
   arr_0.index = 2;
   arr_0.data = 'v50';
 

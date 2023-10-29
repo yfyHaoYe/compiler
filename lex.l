@@ -78,9 +78,8 @@ int|float|char|string {yylval.str_line.string = strdup(yytext);yylval.str_line.l
         error = true;return STR;
     }
 }
-
-'[^']' {yylval.str_line.string = strdup(yytext);yylval.str_line.line = line; return PCHAR;}
-'\\(x|X){hex_digit}+' {yylval.str_line.string = strdup(yytext);yylval.str_line.line = line; return HEXCHAR;} 
+'[^']{1}' {yylval.str_line.string = strdup(yytext);yylval.str_line.line = line; return PCHAR;}
+'\\(x|X){hex_digit}{1,2}' {yylval.str_line.string = strdup(yytext);yylval.str_line.line = line; return HEXCHAR;} 
 
 {digit}+{DOT}{digit}+ {yylval.str_line.string = strdup(yytext);yylval.str_line.line = line; return FLOAT;}
 {letter_}({letter_}|{digit})* {yylval.str_line.string = strdup(yytext);yylval.str_line.line = line; return ID;}
@@ -96,12 +95,18 @@ int|float|char|string {yylval.str_line.string = strdup(yytext);yylval.str_line.l
         return STR;
     }
 }
+0(x|X)({letter}|{digit})+ {printf("Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext);
+    fprintf(output_file, "Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext); error = true; return STR;}
 "&"|"|" {printf("Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext);
     fprintf(output_file, "Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext); error = true;return AND;}
 [^\'\"\\] {printf("Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext);
     fprintf(output_file, "Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext); error = true; return STR;}
+'\\x{hex_digit}{3,}' {printf("Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext);
+    fprintf(output_file, "Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext); error = true; return HEXCHAR;}
 '\\x[^{hex_digit}]+' {printf("Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext);
     fprintf(output_file, "Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext); error = true; return STR;}
+'[^']{2,}' {printf("Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext);
+                                    fprintf(output_file, "Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext); error = true; return PCHAR;}
 . { printf("Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext);
     fprintf(output_file, "Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext); error = true; return STR; }
 %%
