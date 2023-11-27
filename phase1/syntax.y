@@ -115,6 +115,7 @@ Specifier : TYPE {
 StructSpecifier : STRUCT ID LC DefList RC {
     $$ = createNode("StructSpecifier", "", $1, 5, createNode("STRUCT", "", $1, 0), createNode("ID", $2.string, $2.line, 0), createNode("LC", "", $3, 0), $4, createNode("RC", "", $5, 0));
 }
+
 | STRUCT ID {
     $$ = createNode("StructSpecifier", "", $1, 2, createNode("STRUCT", "", $1, 0), createNode("ID", $2.string, $2.line, 0));
 }
@@ -222,7 +223,7 @@ Def : Specifier DecList SEMI {
 | Specifier DecList error {
     yyerror(" Missing semicolon ';'");
 }
-| error DecList SEMI{
+| error DecList SEMI {
     yyerror(" Missing Specifier");
 }
 ;
@@ -330,7 +331,7 @@ Exp : Exp ASSIGN Exp {
 }
 ;
 Args : Exp COMMA Args {
-    $$ = createNode("Args", "", $1->line, 3, $1, createNode("COMMA", "", 0, 0), convertNull($3));
+    $$ = createNode("Args", "", $1->line, 3, $1, createNode("COMMA", "", 0, 0), $3);
 }
 | Exp {
     $$ = createNode("Args", "", $1->line, 1, $1);

@@ -1,0 +1,6 @@
+Error type A at Line 4: Unknown characters ''\xr0''
+Error type A at Line 5: Unknown characters '2_A'
+Error type A at Line 9: Unknown characters '0023'
+Error type A at Line 11: Unknown characters '000.234'
+Error type B at Line 12: Missing closing parenthesis ')'
+Error type B at Line 16: Missing closing parenthesis ')'
