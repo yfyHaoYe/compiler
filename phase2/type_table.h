@@ -25,10 +25,10 @@ typedef struct FieldList {
     struct FieldList *next;
 }FieldList;
 
-typedef struct {
+typedef struct HashNode {
     char* name;
     Type* type;
-    HashNode* next;
+    struct HashNode* next;
 } HashNode;
 
 

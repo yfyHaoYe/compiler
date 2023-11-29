@@ -1,5 +1,6 @@
 #include "type_table.h"
 #include <stdlib.h>
+#include<stdio.h>
 
 unsigned int hashFunction(const char* name){
     unsigned int hash = 0;
@@ -13,7 +14,7 @@ unsigned int hashFunction(const char* name){
 
 HashNode* createHashNode(const char* name, Type* type){
     HashNode* node = (HashNode*)malloc(sizeof(HashNode));
-    node->name = name;
+    strcpy(node->name, name);
     node->type = type;
     node->next = NULL;
 }

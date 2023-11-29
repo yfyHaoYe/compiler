@@ -93,7 +93,7 @@ int|float|char|string {yylval.str_line.string = strdup(yytext);yylval.str_line.l
 '\\(x|X){hex_digit}{1,2}\' {yylval.str_line.string = strdup(yytext);yylval.str_line.line = line; return HEXCHAR;} 
 ' { printf("Error type A at Line %d: Missing single quotation '\n", line); }
 \" { printf("Error type A at Line %d: Missing double quotation \" \n", line); }
-(({digitno0}{digit}*)|0){DOT}{digit}+ {yylval.str_line.string = strdup(yytext);yylval.str_line.line = line; return FLOAT;}
+(({digitno0}{digit}*)|0){DOT}{digit}+ {yylval.str_line.string = strdup(yytext);yylval.str_line.line = line; return FLOATNUM;}
 {letter_}({letter_}|{digit})* {yylval.str_line.string = strdup(yytext);yylval.str_line.line = line; return ID;}
 ({letter_}|{digit})+{letter_}+ {printf("Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext);
                                     fprintf(output_file, "Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext); error = true; return ID;}
@@ -120,7 +120,7 @@ int|float|char|string {yylval.str_line.string = strdup(yytext);yylval.str_line.l
 '[^']{2,}' {printf("Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext);
                                     fprintf(output_file, "Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext); error = true; return PCHAR;}
 {digit}+{DOT}{digit}+ {printf("Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext);
-    fprintf(output_file, "Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext); error = true; return FLOAT;}
+    fprintf(output_file, "Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext); error = true; return FLOATNUM;}
 {digit}+ {printf("Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext);
     fprintf(output_file, "Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext); error = true; return DECINT;}
 . { printf("Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext);

@@ -3,7 +3,7 @@
 #include "tree_node.h"
 typedef struct ListNode {
     TreeNode* node;
-    ListNode* next;
+    struct ListNode* next;
 }ListNode;
 
 ListNode* createListNode(TreeNode* node);

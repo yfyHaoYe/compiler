@@ -10,7 +10,7 @@
     #include <stdbool.h>
     char* convertToDec(char*);
     int yyerror(const char *);
-    TypeTable* typeTable = (TypeTable*)malloc(sizeof(TypeTable));
+    TypeTable* typeTable;
     ListNode* findTerminals(TreeNode* node, ListNode* list);
     void findNode(TreeNode* node, ListNode* list, char* type);
     void printParseTree(TreeNode* node, int level);
@@ -19,10 +19,12 @@
     TreeNode* convertNull(TreeNode* node);
     char num[50];
     void processArray(TreeNode* varDec, Type* type, TreeNode* specifier){
-        ListNode* idList = findNode(varDec->node, idList, "ID");
+        ListNode* idList;
+        findNode(varDec, idList, "ID");
         TreeNode* id = idList->node;
+        char* name;
         name = id->value;
-        type->name = name;
+        strcpy(type->name, name);
         type->category = ARRAY;
         type->array = (Array*)malloc(sizeof(Array));
         Type* base = (Type*)malloc(sizeof(Type));
@@ -30,41 +32,37 @@
         if(strcmp(varDec->children[0]->children[0]->type, "ID") == 0){
             base->category = PRIMITIVE;
             //默认不为struct数组
-            switch(specifier->children[0]->value){
-                case "int":
-                    base->primitive = INT;
-                    break;
-                case "float":
-                    base->primitive = FLOAT;
-                    break;
-                case "char":
-                    base->primitive = CHAR;
-                    break;
-                default:
-                    break;
+            char* typeName = specifier->children[0]->value;
+            if(strcmp(typeName, "int") == 0){
+                base->primitive = INT;
+            }else if(strcmp(typeName, "float") == 0){
+                base->primitive = FLOAT;
+            }else if(strcmp(typeName, "char") == 0){
+                base->primitive = CHAR;
             }
         }else{
-            processArray(carDec->children[0], base, specifier);
+            processArray(varDec->children[0], base, specifier);
         }
-        type->array->base->base;
+        type->array->base = base;
         type->array->size = size;
     }
 
     void processStruct(TreeNode* structSpecifier, Type* type){
         if(structSpecifier->numChildren == 2){
             //同时使用struct ID和别名ID,Type类型中存真名，table中存进别名
-            type->name = structSpecifier->children[1]->value;
+            strcpy(type->name, structSpecifier->children[1]->value);
             type->category = STRUCTURE;
             type->structure = (FieldList*)malloc(sizeof(FieldList));
             FieldList* curField = type->structure;
             TreeNode* defListNode = structSpecifier->children[3];
-            ListNode* defList = (ListNode*)malloc(sizeof(ListNode));
+            ListNode* defList;
             findNode(defListNode, defList, "Def");
             ListNode* curNode = defList;
             while(curNode != NULL){
                 TreeNode* specifier = curNode->node->children[0];
                 if(strcmp(specifier->children[0]->type, "TYPE") == 0){
-                    ListNode* varDecList = findNode(curNode, varDecList, "VarDec");
+                    ListNode* varDecList;
+                    findNode(curNode->node, varDecList, "VarDec");
                     ListNode* curVar = varDecList;
                     while(curVar != NULL){
                         char* name;
@@ -74,64 +72,56 @@
                             TreeNode* id = curVar->node->children[0];
                             name = id->value;
                             subType->category = PRIMITIVE;
-                            switch(specifier->children[0]->value){
-                                case "int":
-                                    subType->primitive = INT;
-                                    break;
-                                case "float":
-                                    subType->primitive = FLOAT;
-                                    break;
-                                case "char":
-                                    subType->primitive = CHAR;
-                                    break;
-                                default:
-                                    break;
+                            char* typeName = specifier->children[0]->value;
+                            if(strcmp(typeName, "int") == 0){
+                                subType->primitive = INT;
+                            }else if(strcmp(typeName, "float") == 0){
+                                subType->primitive = FLOAT;
+                            }else if(strcmp(typeName, "char") == 0){
+                                subType->primitive = CHAR;
                             }
-                            subType->name = name;
-                            curField->name = name;
+                            strcpy(subType->name, name);
+                            strcpy(curField->name, name);
                             curField->type = subType;
                             curField->next = (FieldList*)malloc(sizeof(FieldList));
                             curField = curField->next;
                             //struct内部变量
-                            insertIntoTypeTable(createHashNode(name, subType));
+                            insertIntoTypeTable(typeTable, name, subType);
                         }else{
                             //数组
-                            ListNode* idList = findNode(curVar->node, idList, "ID");
+                            ListNode* idList;
+                            findNode(curVar->node, idList, "ID");
                             TreeNode* id = idList->node;
-                            name = id->value;
-                            subType->name = name;
+                            strcpy(name, id->value);
+                            strcpy(subType->name, name);
                             subType->category = ARRAY;
                             subType->array = (Array*)malloc(sizeof(Array));
                             Type* base = (Type*)malloc(sizeof(Type));
-                            int size = atoi(curVar->children[2]->value);
-                            if(strcmp(curVar->children[0]->children[0]->type, "ID") == 0){
+                            int size = atoi(curVar->node->children[2]->value);
+                            if(strcmp(curVar->node->children[0]->children[0]->type, "ID") == 0){
                                 base->category = PRIMITIVE;
-                                switch(specifier->children[0]->value){
-                                    case "int":
-                                        base->primitive = INT;
-                                        break;
-                                    case "float":
-                                        base->primitive = FLOAT;
-                                        break;
-                                    case "char":
-                                        base->primitive = CHAR;
-                                        break;
-                                    default:
-                                        break;
+                                char* typeName = specifier->children[0]->value;
+                                if(strcmp(typeName, "int") == 0){
+                                    base->primitive = INT;
+                                }else if(strcmp(typeName, "float") == 0){
+                                    base->primitive = FLOAT;
+                                }else if(strcmp(typeName, "char") == 0){
+                                    base->primitive = CHAR;
                                 }
                             }else{
-                                processArray(curVar->children[0], base, specifier);
+                                processArray(curVar->node->children[0], base, specifier);
                             }
-                            subType->array->base->base;
+                            subType->array->base = base;
                             subType->array->size = size;
-                            insertIntoTypeTable(createHashNode(name, subType));
+                            insertIntoTypeTable(typeTable, name, subType);
                         }
                     }
                 }else{
                     //struct嵌套
                     Type* subType = (Type*)malloc(sizeof(Type));
                     processStruct(specifier->children[0], subType);
-                    ListNode* varDecList = findNode(curNode, varDecList, "VarDec");
+                    ListNode* varDecList;
+                    findNode(curNode->node, varDecList, "VarDec");
                     ListNode* curVar = varDecList;
                     while(curVar != NULL){
                         char* name;
@@ -139,13 +129,12 @@
                             TreeNode* id = curVar->node->children[0];
                             name = id->value;
                         }
-                        insertIntoTypeTable(createHashNode(name, subType));
+                        insertIntoTypeTable(typeTable, name, subType);
                     }
                 }
             }
-            HashNode* hashNode = createHashNode(structSpecifier->children[1]->value, type);
             //struct本身
-            insertIntoTypeTable(typeTable, hashNode);
+            insertIntoTypeTable(typeTable, structSpecifier->children[1]->value, type);
         }
     }
 
@@ -158,7 +147,7 @@
     TreeNode* node;
 }
 %type<str_line> INT CHAR
-%token<str_line> TYPE ID FLOAT DECINT HEXINT PCHAR HEXCHAR STR
+%token<str_line> TYPE ID FLOATNUM DECINT HEXINT PCHAR HEXCHAR STR
 %token<str_line.line> LC RC SEMI COMMA STRUCT RETURN WHILE IF
 %type<node> Program ExtDefList ExtDef ExtDecList Specifier StructSpecifier VarDec FunDec VarList ParamDec CompSt StmtList Stmt DefList Def DecList Dec Exp Args ErrorStmt
 %nonassoc<node> LOWER
@@ -194,44 +183,38 @@ ExtDef : Specifier ExtDecList SEMI {
     //add primitive type to type table
     Type* type = (Type*)malloc(sizeof(Type));
     TreeNode* cur = $2;
-    ListNode* varDecList = (ListNode*)malloc(sizeof(ListNode));
+    ListNode* varDecList;
     findNode(cur, varDecList, "VarDec");
-    ListNode* curVar = varDecList->head;
+    ListNode* curVar = varDecList;
     char* name;
     while(curVar != NULL){
         Type* type = (Type*)malloc(sizeof(Type));
         if(curVar->node->numChildren == 1){
             //普通变量
-            name = curVar->node->children[0]->value
-            type->name = name;
+            name = curVar->node->children[0]->value;
+            strcpy(type->name, name);
             type->category = PRIMITIVE;
-            switch($1->children[0]->value){
-                case "int":
-                    type->primitive = INT;
-                    break;
-                case "float":
-                    type->primitive = FLOAT;
-                    break;
-                case "char":
-                    type->primitive = CHAR;
-                    break;
-                default:
-                    break;
+            char* typeName = $1->children[0]->value;
+            if(strcmp(typeName, "int") == 0){
+                type->primitive = INT;
+            }else if(strcmp(typeName, "float") == 0){
+                type->primitive = FLOAT;
+            }else if(strcmp(typeName, "char") == 0){
+                type->primitive = CHAR;
             }
         }else{
             //数组
             name = curVar->node->children[2]->value;
-            type->name = name;
+            strcpy(type->name, name);
             type->category = ARRAY;
             type->array = (Array*)malloc(sizeof(Array));
             Type* base = (Type*)malloc(sizeof(Type));
-            int size = atoi(curVar->children[2]->value);
+            int size = atoi(curVar->node->children[2]->value);
             processArray(curVar->node, base, $1);
-            type->array->base->base;
+            type->array->base = base;
             type->array->size = size;
-        }            
-        HashNode* hashNode = createHashNode(name, type);
-        insertIntoTypeTable(typeTable, hashNode);
+        }
+        insertIntoTypeTable(typeTable, name, type);
         curVar = curVar->next;
     }
 }
@@ -460,7 +443,7 @@ Exp : Exp ASSIGN Exp {
 | INT {
     $$ = createNode("Exp", "", $1.line, 1, createNode("INT", $1.string, $1.line, 0));
 }
-| FLOAT {
+| FLOATNUM {
     $$ = createNode("Exp", "", $1.line, 1, createNode("FLOAT", $1.string, $1.line, 0));
 }
 | CHAR {
@@ -504,28 +487,15 @@ $$.line = $1.line;}
 ;
 %%
 
-void findTerminals(TreeNode* node, ListNode* list) {
-    if(node == NULL) return list;
-    if(node->empty) return list;
-    if(node->numChildren == 0) {
-        insertListNode(list, node);
-    }
-    for(int i = 0; i < node->numChildren; i++) {
-        list = traverseTree(node->children[i], list);
-    }
-    return list;
-}
-
 void findNode(TreeNode* node, ListNode* list, char* type){
-    if(node == NULL) return list;
-    if(node->empty) return list;
+    if(node == NULL) return;
+    if(node->empty) return;
     if(strcmp(node->type, type) == 0) {
         insertListNode(list, node);
     }
     for(int i = 0; i < node->numChildren; i++) {
-        list = traverseTree(node->children[i], list);
+        findNode(node->children[i], list, type);
     }
-    return list;
 }
 
 TreeNode* createNode(char* type, char* value, int line, int numChildren, ...) {
