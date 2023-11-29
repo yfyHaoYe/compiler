@@ -1,4 +1,5 @@
 #include "linked_list.h"
+#include "tree_node.h"
 #include <stdlib.h>
 #include <stdio.h>
 ListNode* createListNode(TreeNode* node) {
@@ -17,6 +18,7 @@ void insertListNode(ListNode* head, TreeNode* node) {
     if (head == NULL) {
         head = newListNode;
     } else {
+        printf("there\n");
         ListNode* current = head;
         while (current->next != NULL) {
             current = current->next;

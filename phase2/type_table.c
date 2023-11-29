@@ -1,6 +1,7 @@
 #include "type_table.h"
 #include <stdlib.h>
 #include<stdio.h>
+#include<stdbool.h>
 
 unsigned int hashFunction(const char* name){
     unsigned int hash = 0;
@@ -34,6 +35,18 @@ void insertIntoTypeTable(TypeTable* typeTable, const char* name, Type* type){
         currentNode = currentNode->next;
     }
     typeTable->buckets[hash] = node;
+}
+
+bool isContains(TypeTable* typeTable, const char* name){
+    unsigned int hash = hashFunction(name);
+    HashNode* currentNode = typeTable->buckets[hash];
+    while(currentNode != NULL){
+        if (strcmp(currentNode->name, name) == 0) {
+            return true;
+        }
+        currentNode = currentNode->next;
+    }
+    return false;
 }
 
 HashNode* getValuesFromTypeTable(TypeTable* typeTable, const char* name) {

@@ -9,6 +9,7 @@
     #include "lex_interface.h"
     #include <stdbool.h>
     char* convertToDec(char*);
+    int typeError(const char *msg, int type);
     int yyerror(const char *);
     TypeTable* typeTable;
     ListNode* findTerminals(TreeNode* node, ListNode* list);
@@ -18,125 +19,9 @@
     TreeNode* createNode(char* type, char* value, int line, int numChildren, ...);
     TreeNode* convertNull(TreeNode* node);
     char num[50];
-    void processArray(TreeNode* varDec, Type* type, TreeNode* specifier){
-        ListNode* idList;
-        findNode(varDec, idList, "ID");
-        TreeNode* id = idList->node;
-        char* name;
-        name = id->value;
-        strcpy(type->name, name);
-        type->category = ARRAY;
-        type->array = (Array*)malloc(sizeof(Array));
-        Type* base = (Type*)malloc(sizeof(Type));
-        int size = atoi(varDec->children[2]->value);
-        if(strcmp(varDec->children[0]->children[0]->type, "ID") == 0){
-            base->category = PRIMITIVE;
-            //默认不为struct数组
-            char* typeName = specifier->children[0]->value;
-            if(strcmp(typeName, "int") == 0){
-                base->primitive = INT;
-            }else if(strcmp(typeName, "float") == 0){
-                base->primitive = FLOAT;
-            }else if(strcmp(typeName, "char") == 0){
-                base->primitive = CHAR;
-            }
-        }else{
-            processArray(varDec->children[0], base, specifier);
-        }
-        type->array->base = base;
-        type->array->size = size;
-    }
-
-    void processStruct(TreeNode* structSpecifier, Type* type){
-        if(structSpecifier->numChildren == 2){
-            //同时使用struct ID和别名ID,Type类型中存真名，table中存进别名
-            strcpy(type->name, structSpecifier->children[1]->value);
-            type->category = STRUCTURE;
-            type->structure = (FieldList*)malloc(sizeof(FieldList));
-            FieldList* curField = type->structure;
-            TreeNode* defListNode = structSpecifier->children[3];
-            ListNode* defList;
-            findNode(defListNode, defList, "Def");
-            ListNode* curNode = defList;
-            while(curNode != NULL){
-                TreeNode* specifier = curNode->node->children[0];
-                if(strcmp(specifier->children[0]->type, "TYPE") == 0){
-                    ListNode* varDecList;
-                    findNode(curNode->node, varDecList, "VarDec");
-                    ListNode* curVar = varDecList;
-                    while(curVar != NULL){
-                        char* name;
-                        Type* subType = (Type*)malloc(sizeof(Type));
-                        if(curVar->node->numChildren == 1){
-                            //普通变量
-                            TreeNode* id = curVar->node->children[0];
-                            name = id->value;
-                            subType->category = PRIMITIVE;
-                            char* typeName = specifier->children[0]->value;
-                            if(strcmp(typeName, "int") == 0){
-                                subType->primitive = INT;
-                            }else if(strcmp(typeName, "float") == 0){
-                                subType->primitive = FLOAT;
-                            }else if(strcmp(typeName, "char") == 0){
-                                subType->primitive = CHAR;
-                            }
-                            strcpy(subType->name, name);
-                            strcpy(curField->name, name);
-                            curField->type = subType;
-                            curField->next = (FieldList*)malloc(sizeof(FieldList));
-                            curField = curField->next;
-                            //struct内部变量
-                            insertIntoTypeTable(typeTable, name, subType);
-                        }else{
-                            //数组
-                            ListNode* idList;
-                            findNode(curVar->node, idList, "ID");
-                            TreeNode* id = idList->node;
-                            strcpy(name, id->value);
-                            strcpy(subType->name, name);
-                            subType->category = ARRAY;
-                            subType->array = (Array*)malloc(sizeof(Array));
-                            Type* base = (Type*)malloc(sizeof(Type));
-                            int size = atoi(curVar->node->children[2]->value);
-                            if(strcmp(curVar->node->children[0]->children[0]->type, "ID") == 0){
-                                base->category = PRIMITIVE;
-                                char* typeName = specifier->children[0]->value;
-                                if(strcmp(typeName, "int") == 0){
-                                    base->primitive = INT;
-                                }else if(strcmp(typeName, "float") == 0){
-                                    base->primitive = FLOAT;
-                                }else if(strcmp(typeName, "char") == 0){
-                                    base->primitive = CHAR;
-                                }
-                            }else{
-                                processArray(curVar->node->children[0], base, specifier);
-                            }
-                            subType->array->base = base;
-                            subType->array->size = size;
-                            insertIntoTypeTable(typeTable, name, subType);
-                        }
-                    }
-                }else{
-                    //struct嵌套
-                    Type* subType = (Type*)malloc(sizeof(Type));
-                    processStruct(specifier->children[0], subType);
-                    ListNode* varDecList;
-                    findNode(curNode->node, varDecList, "VarDec");
-                    ListNode* curVar = varDecList;
-                    while(curVar != NULL){
-                        char* name;
-                        if(curVar->node->numChildren == 1){
-                            TreeNode* id = curVar->node->children[0];
-                            name = id->value;
-                        }
-                        insertIntoTypeTable(typeTable, name, subType);
-                    }
-                }
-            }
-            //struct本身
-            insertIntoTypeTable(typeTable, structSpecifier->children[1]->value, type);
-        }
-    }
+    void processArray(TreeNode* varDec, Type* type, TreeNode* specifier);
+    void processStruct(TreeNode* structSpecifier, Type* type);
+    void freeTree(TreeNode* node);
 
 %}
 %union {
@@ -167,7 +52,10 @@ Program : ExtDefList {
         perror("Unable to open output file");
         exit(1);
     }
-    if(!error){printParseTree($$, 0);}
+    if(!error){
+        //printParseTree($$, 0);
+        freeTree($$);
+    }
 }
 ;
 ExtDefList : ExtDef ExtDefList {
@@ -183,7 +71,7 @@ ExtDef : Specifier ExtDecList SEMI {
     //add primitive type to type table
     Type* type = (Type*)malloc(sizeof(Type));
     TreeNode* cur = $2;
-    ListNode* varDecList;
+    ListNode* varDecList = NULL;
     findNode(cur, varDecList, "VarDec");
     ListNode* curVar = varDecList;
     char* name;
@@ -217,6 +105,7 @@ ExtDef : Specifier ExtDecList SEMI {
         insertIntoTypeTable(typeTable, name, type);
         curVar = curVar->next;
     }
+    freeList(varDecList);
 }
 | Specifier SEMI {
     $$ = createNode("ExtDef", "", $1->line, 2, $1, createNode("SEMI", "", $2, 0));
@@ -229,10 +118,10 @@ ExtDef : Specifier ExtDecList SEMI {
     $$ = createNode("ExtDef", "", $1->line, 3, $1, $2, $3);
 }
 | Specifier error {
-    yyerror(" Missing semicolon ';'");
+    //yyerror(" Missing semicolon ';'");
 }
 | Specifier ExtDecList error {
-    yyerror(" Missing semicolon ';'");
+    //yyerror(" Missing semicolon ';'");
 }
 ;
 ExtDecList : VarDec {
@@ -266,7 +155,7 @@ VarDec : ID {
     $$ = createNode("VarDec", "", $1->line, 4, $1, createNode("LB", "", $2, 0), createNode("INT", $3.string, $3.line, 0), createNode("RB", "", $4, 0));
 }
 | VarDec LB INT error {
-    yyerror(" Missing closing square bracket ']'");
+    //yyerror(" Missing closing square bracket ']'");
 }
 ;
 FunDec : ID LP VarList RP {
@@ -276,10 +165,10 @@ FunDec : ID LP VarList RP {
     $$ = createNode("FunDec", "", $1.line, 3, createNode("ID", $1.string, $1.line, 0), createNode("LP", "", $2, 0), createNode("RP", "", $3, 0));
 }
 |ID LP VarList error {
-    yyerror(" Missing closing parenthesis ')'");
+    //yyerror(" Missing closing parenthesis ')'");
 }
 |ID LP error {
-    yyerror(" Missing closing parenthesis ')'");
+    //yyerror(" Missing closing parenthesis ')'");
 }
 ;
 VarList : ParamDec COMMA VarList {
@@ -324,26 +213,26 @@ Stmt : Exp SEMI {
     $$ = createNode("Stmt", "", $1, 5, createNode("WHILE", "", $1, 0), createNode("LP", "", $2, 0), $3, createNode("RP", "", $4, 0), $5);
 }
 | Exp error {
-    yyerror(" Missing semicolon ';'");
+    //yyerror(" Missing semicolon ';'");
 }
 | RETURN Exp error {
-    yyerror(" Missing semicolon ';'");
+    //yyerror(" Missing semicolon ';'");
 }
 | ErrorStmt Exp RP Stmt {}
 | ErrorStmt Stmt %prec LOWER {}
 | ErrorStmt Stmt ELSE Stmt {}
 ;
 ErrorStmt: IF LP Exp error{
-    yyerror(" Missing closing parenthesis ')'");
+    //yyerror(" Missing closing parenthesis ')'");
 }
 | WHILE LP Exp error {
-    yyerror(" Missing closing parenthesis ')'");
+    //yyerror(" Missing closing parenthesis ')'");
 }
 | WHILE error {
-    yyerror(" Missing opening parenthesis '('");
+    //yyerror(" Missing opening parenthesis '('");
 }
 | IF error {
-    yyerror(" Missing opening parenthesis '('");
+    //yyerror(" Missing opening parenthesis '('");
 }
 ;
 /* local definition */
@@ -359,10 +248,10 @@ Def : Specifier DecList SEMI {
     $$ = createNode("Def", "", $1->line, 3, $1, $2, createNode("SEMI", "", $3, 0));
 }
 | Specifier DecList error {
-    yyerror(" Missing semicolon ';'");
+    //yyerror(" Missing semicolon ';'");
 }
 | error DecList SEMI {
-    yyerror(" Missing Specifier");
+    //yyerror(" Missing Specifier");
 }
 ;
 DecList : Dec {
@@ -377,6 +266,19 @@ Dec : VarDec {
 }
 | VarDec ASSIGN Exp {
     $$ = createNode("Dec", "", $1->line, 3, $1, createNode("ASSIGN", "", $2, 0), $3);
+    ListNode* idList = NULL;
+    findNode($3, idList, "ID");
+    ListNode* curId = idList;
+    while(curId != NULL){
+        char* name = curId->node->value;
+        int len = strlen(name);
+        char* errorMsg = malloc(50);
+        strcpy(errorMsg, name);
+        strcpy(errorMsg + len, " is used without a definition");
+        if(!isContains(typeTable, name)){
+            typeError(errorMsg, 1);
+        }
+    }
 }
 ;
 /* Expression */
@@ -456,16 +358,16 @@ Exp : Exp ASSIGN Exp {
     $$ = createNode("Exp", "", $1.line, 4, createNode("ID", $1.string, $1.line, 0), createNode("LP", "", $2, 0), $3, createNode("RP", "", $2, 0));
 }
 | ID LP Args error {
-    yyerror(" Missing closing parenthesis ')'");
+    //yyerror(" Missing closing parenthesis ')'");
 }
 | ID LP error {
-    yyerror(" Missing closing parenthesis ')'");
+    //yyerror(" Missing closing parenthesis ')'");
 }
 | Exp LB Exp error {
-    yyerror(" Missing closing square bracket ']'");
+    //yyerror(" Missing closing square bracket ']'");
 }
 | LP Exp error {
-    yyerror(" Missing closing parenthesis ')'");
+    //yyerror(" Missing closing parenthesis ')'");
 }
 ;
 Args : Exp COMMA Args {
@@ -486,16 +388,151 @@ $$.line = $1.line;}
 $$.line = $1.line;}
 ;
 %%
+void processStruct(TreeNode* structSpecifier, Type* type){
+        if(structSpecifier->numChildren == 2){
+            //同时使用struct ID和别名ID,Type类型中存真名，table中存进别名
+            strcpy(type->name, structSpecifier->children[1]->value);
+            type->category = STRUCTURE;
+            type->structure = (FieldList*)malloc(sizeof(FieldList));
+            FieldList* curField = type->structure;
+            TreeNode* defListNode = structSpecifier->children[3];
+            ListNode* defList = NULL;
+            findNode(defListNode, defList, "Def");
+            ListNode* curNode = defList;
+            while(curNode != NULL){
+                TreeNode* specifier = curNode->node->children[0];
+                if(strcmp(specifier->children[0]->type, "TYPE") == 0){
+                    ListNode* varDecList = NULL;
+                    findNode(curNode->node, varDecList, "VarDec");
+                    ListNode* curVar = varDecList;
+                    while(curVar != NULL){
+                        char* name;
+                        Type* subType = (Type*)malloc(sizeof(Type));
+                        if(curVar->node->numChildren == 1){
+                            //普通变量
+                            TreeNode* id = curVar->node->children[0];
+                            name = id->value;
+                            subType->category = PRIMITIVE;
+                            char* typeName = specifier->children[0]->value;
+                            if(strcmp(typeName, "int") == 0){
+                                subType->primitive = INT;
+                            }else if(strcmp(typeName, "float") == 0){
+                                subType->primitive = FLOAT;
+                            }else if(strcmp(typeName, "char") == 0){
+                                subType->primitive = CHAR;
+                            }
+                            strcpy(subType->name, name);
+                            strcpy(curField->name, name);
+                            curField->type = subType;
+                            curField->next = (FieldList*)malloc(sizeof(FieldList));
+                            curField = curField->next;
+                            //struct内部变量
+                            insertIntoTypeTable(typeTable, name, subType);
+                        }else{
+                            //数组
+                            ListNode* idList = NULL;
+                            findNode(curVar->node, idList, "ID");
+                            TreeNode* id = idList->node;
+                            strcpy(name, id->value);
+                            strcpy(subType->name, name);
+                            subType->category = ARRAY;
+                            subType->array = (Array*)malloc(sizeof(Array));
+                            Type* base = (Type*)malloc(sizeof(Type));
+                            int size = atoi(curVar->node->children[2]->value);
+                            if(strcmp(curVar->node->children[0]->children[0]->type, "ID") == 0){
+                                base->category = PRIMITIVE;
+                                char* typeName = specifier->children[0]->value;
+                                if(strcmp(typeName, "int") == 0){
+                                    base->primitive = INT;
+                                }else if(strcmp(typeName, "float") == 0){
+                                    base->primitive = FLOAT;
+                                }else if(strcmp(typeName, "char") == 0){
+                                    base->primitive = CHAR;
+                                }
+                            }else{
+                                processArray(curVar->node->children[0], base, specifier);
+                            }
+                            subType->array->base = base;
+                            subType->array->size = size;
+                            insertIntoTypeTable(typeTable, name, subType);
+                            freeList(idList);
+                        }
+                    }
+                    freeList(varDecList);
+                }else{
+                    //struct嵌套
+                    Type* subType = (Type*)malloc(sizeof(Type));
+                    processStruct(specifier->children[0], subType);
+                    ListNode* varDecList = NULL;
+                    findNode(curNode->node, varDecList, "VarDec");
+                    ListNode* curVar = varDecList;
+                    while(curVar != NULL){
+                        char* name;
+                        if(curVar->node->numChildren == 1){
+                            TreeNode* id = curVar->node->children[0];
+                            name = id->value;
+                        }
+                        insertIntoTypeTable(typeTable, name, subType);
+                    }
+                    freeList(varDecList);
+                }
+            }
+            //struct本身
+            insertIntoTypeTable(typeTable, structSpecifier->children[1]->value, type);
+            freeList(defList);
+        }
+    }
+
+void processArray(TreeNode* varDec, Type* type, TreeNode* specifier){
+        ListNode* idList = NULL;
+        findNode(varDec, idList, "ID");
+        TreeNode* id = idList->node;
+        char* name;
+        name = id->value;
+        strcpy(type->name, name);
+        type->category = ARRAY;
+        type->array = (Array*)malloc(sizeof(Array));
+        Type* base = (Type*)malloc(sizeof(Type));
+        int size = atoi(varDec->children[2]->value);
+        if(strcmp(varDec->children[0]->children[0]->type, "ID") == 0){
+            base->category = PRIMITIVE;
+            //默认不为struct数组
+            char* typeName = specifier->children[0]->value;
+            if(strcmp(typeName, "int") == 0){
+                base->primitive = INT;
+            }else if(strcmp(typeName, "float") == 0){
+                base->primitive = FLOAT;
+            }else if(strcmp(typeName, "char") == 0){
+                base->primitive = CHAR;
+            }
+        }else{
+            processArray(varDec->children[0], base, specifier);
+        }
+        type->array->base = base;
+        type->array->size = size;
+        freeList(idList);
+    }
 
 void findNode(TreeNode* node, ListNode* list, char* type){
     if(node == NULL) return;
-    if(node->empty) return;
     if(strcmp(node->type, type) == 0) {
         insertListNode(list, node);
     }
     for(int i = 0; i < node->numChildren; i++) {
         findNode(node->children[i], list, type);
     }
+}
+
+void freeTree(TreeNode* node){
+    if(node == NULL) return;
+    int num = node->numChildren;
+    for(int i = 0; i < num; i++){
+        freeTree(node->children[i]);
+    }
+    free(node->type);
+    free(node->value);
+    free(node->children);
+    free(node);
 }
 
 TreeNode* createNode(char* type, char* value, int line, int numChildren, ...) {
@@ -579,6 +616,11 @@ void printParseTree(TreeNode* node, int level) {
     }
 }
 
+int typeError(const char *msg, int type){
+    printf("Error type %d at Line %d:%s\n", type, line, msg);
+    fprintf(output_file, "Error type %d at Line %d:%s\n",type, line, msg);
+}
+
 int yyerror(const char *msg) {
     char* syntax_error = "syntax error";
     if(strcmp(msg, syntax_error) != 0){        
@@ -607,6 +649,7 @@ int main(int argc, char **argv){
         }
         yyparse();
         fclose(output_file);
+        free(typeTable);
         return EXIT_OK;
     } else{
         fputs("Too many arguments! Expected: 2.\n", stderr);

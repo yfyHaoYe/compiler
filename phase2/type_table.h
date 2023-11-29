@@ -3,6 +3,7 @@
 #define TABLE_SIZE 97
 #include <string.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 typedef struct Type {
     char name[32];
@@ -45,5 +46,7 @@ void insertIntoTypeTable(TypeTable* typeTable, const char* name, Type* type);
 HashNode* getValuesFromTypeTable(TypeTable* typeTable, const char* name);
 
 void freeTypeTable(TypeTable* typeTable);
+
+bool isContains(TypeTable* typeTable, const char* name);
 #endif
 
