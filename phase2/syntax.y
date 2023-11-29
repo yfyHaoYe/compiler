@@ -1,45 +1,153 @@
 %{
     #include "tree_node.h"
+    #include "type_table.h"
+    #include "linked_list.h"
+    #include <stdlib.h>
     #include "lex.yy.c"
     #include <stdio.h>
     #include <string.h>
     #include "lex_interface.h"
     #include <stdbool.h>
-    int yydebug = 1;
     char* convertToDec(char*);
     int yyerror(const char *);
-
-    TreeNode* createNode(char* type, char* value, int line, int numChildren, ...) {
-        TreeNode* newNode = (TreeNode*)malloc(sizeof(TreeNode));
-        newNode->type = strdup(type);
-        newNode->value = strdup(value);
-        newNode->line = line;
-        newNode->numChildren = numChildren;
-        newNode->empty = false;
-        //printf("the node is %s %s %d\n", type, value, line);
-        if (numChildren > 0) {
-            va_list args;
-            va_start(args, numChildren);
-            newNode->children = (TreeNode**)malloc(numChildren * (sizeof(TreeNode*) + 2));
-            for (int i = 0; i < numChildren; i++) {
-                newNode->children[i] = va_arg(args, TreeNode*);
-            }
-            va_end(args);
-        } else {
-            newNode->children = NULL;
-        }
-        return newNode;
-    }
-
-
-    TreeNode* convertNull(TreeNode* node) {
-        node->empty = true;
-        return node;
-    }
-
+    TypeTable* typeTable = (TypeTable*)malloc(sizeof(TypeTable));
+    ListNode* findTerminals(TreeNode* node, ListNode* list);
+    void findNode(TreeNode* node, ListNode* list, char* type);
     void printParseTree(TreeNode* node, int level);
     void getOutputPath(const char *input_path, char *output_path, size_t output_path_size);
+    TreeNode* createNode(char* type, char* value, int line, int numChildren, ...);
+    TreeNode* convertNull(TreeNode* node);
     char num[50];
+    void processArray(TreeNode* varDec, Type* type, TreeNode* specifier){
+        ListNode* idList = findNode(varDec->node, idList, "ID");
+        TreeNode* id = idList->node;
+        name = id->value;
+        type->name = name;
+        type->category = ARRAY;
+        type->array = (Array*)malloc(sizeof(Array));
+        Type* base = (Type*)malloc(sizeof(Type));
+        int size = atoi(varDec->children[2]->value);
+        if(strcmp(varDec->children[0]->children[0]->type, "ID") == 0){
+            base->category = PRIMITIVE;
+            //默认不为struct数组
+            switch(specifier->children[0]->value){
+                case "int":
+                    base->primitive = INT;
+                    break;
+                case "float":
+                    base->primitive = FLOAT;
+                    break;
+                case "char":
+                    base->primitive = CHAR;
+                    break;
+                default:
+                    break;
+            }
+        }else{
+            processArray(carDec->children[0], base, specifier);
+        }
+        type->array->base->base;
+        type->array->size = size;
+    }
+
+    void processStruct(TreeNode* structSpecifier, Type* type){
+        if(structSpecifier->numChildren == 2){
+            //同时使用struct ID和别名ID,Type类型中存真名，table中存进别名
+            type->name = structSpecifier->children[1]->value;
+            type->category = STRUCTURE;
+            type->structure = (FieldList*)malloc(sizeof(FieldList));
+            FieldList* curField = type->structure;
+            TreeNode* defListNode = structSpecifier->children[3];
+            ListNode* defList = (ListNode*)malloc(sizeof(ListNode));
+            findNode(defListNode, defList, "Def");
+            ListNode* curNode = defList;
+            while(curNode != NULL){
+                TreeNode* specifier = curNode->node->children[0];
+                if(strcmp(specifier->children[0]->type, "TYPE") == 0){
+                    ListNode* varDecList = findNode(curNode, varDecList, "VarDec");
+                    ListNode* curVar = varDecList;
+                    while(curVar != NULL){
+                        char* name;
+                        Type* subType = (Type*)malloc(sizeof(Type));
+                        if(curVar->node->numChildren == 1){
+                            //普通变量
+                            TreeNode* id = curVar->node->children[0];
+                            name = id->value;
+                            subType->category = PRIMITIVE;
+                            switch(specifier->children[0]->value){
+                                case "int":
+                                    subType->primitive = INT;
+                                    break;
+                                case "float":
+                                    subType->primitive = FLOAT;
+                                    break;
+                                case "char":
+                                    subType->primitive = CHAR;
+                                    break;
+                                default:
+                                    break;
+                            }
+                            subType->name = name;
+                            curField->name = name;
+                            curField->type = subType;
+                            curField->next = (FieldList*)malloc(sizeof(FieldList));
+                            curField = curField->next;
+                            //struct内部变量
+                            insertIntoTypeTable(createHashNode(name, subType));
+                        }else{
+                            //数组
+                            ListNode* idList = findNode(curVar->node, idList, "ID");
+                            TreeNode* id = idList->node;
+                            name = id->value;
+                            subType->name = name;
+                            subType->category = ARRAY;
+                            subType->array = (Array*)malloc(sizeof(Array));
+                            Type* base = (Type*)malloc(sizeof(Type));
+                            int size = atoi(curVar->children[2]->value);
+                            if(strcmp(curVar->children[0]->children[0]->type, "ID") == 0){
+                                base->category = PRIMITIVE;
+                                switch(specifier->children[0]->value){
+                                    case "int":
+                                        base->primitive = INT;
+                                        break;
+                                    case "float":
+                                        base->primitive = FLOAT;
+                                        break;
+                                    case "char":
+                                        base->primitive = CHAR;
+                                        break;
+                                    default:
+                                        break;
+                                }
+                            }else{
+                                processArray(curVar->children[0], base, specifier);
+                            }
+                            subType->array->base->base;
+                            subType->array->size = size;
+                            insertIntoTypeTable(createHashNode(name, subType));
+                        }
+                    }
+                }else{
+                    //struct嵌套
+                    Type* subType = (Type*)malloc(sizeof(Type));
+                    processStruct(specifier->children[0], subType);
+                    ListNode* varDecList = findNode(curNode, varDecList, "VarDec");
+                    ListNode* curVar = varDecList;
+                    while(curVar != NULL){
+                        char* name;
+                        if(curVar->node->numChildren == 1){
+                            TreeNode* id = curVar->node->children[0];
+                            name = id->value;
+                        }
+                        insertIntoTypeTable(createHashNode(name, subType));
+                    }
+                }
+            }
+            HashNode* hashNode = createHashNode(structSpecifier->children[1]->value, type);
+            //struct本身
+            insertIntoTypeTable(typeTable, hashNode);
+        }
+    }
 
 %}
 %union {
@@ -83,9 +191,56 @@ ExtDefList : ExtDef ExtDefList {
 ;
 ExtDef : Specifier ExtDecList SEMI {
     $$ = createNode("ExtDef", "", $1->line, 3, $1, $2, createNode("SEMI", "", $3, 0));
+    //add primitive type to type table
+    Type* type = (Type*)malloc(sizeof(Type));
+    TreeNode* cur = $2;
+    ListNode* varDecList = (ListNode*)malloc(sizeof(ListNode));
+    findNode(cur, varDecList, "VarDec");
+    ListNode* curVar = varDecList->head;
+    char* name;
+    while(curVar != NULL){
+        Type* type = (Type*)malloc(sizeof(Type));
+        if(curVar->node->numChildren == 1){
+            //普通变量
+            name = curVar->node->children[0]->value
+            type->name = name;
+            type->category = PRIMITIVE;
+            switch($1->children[0]->value){
+                case "int":
+                    type->primitive = INT;
+                    break;
+                case "float":
+                    type->primitive = FLOAT;
+                    break;
+                case "char":
+                    type->primitive = CHAR;
+                    break;
+                default:
+                    break;
+            }
+        }else{
+            //数组
+            name = curVar->node->children[2]->value;
+            type->name = name;
+            type->category = ARRAY;
+            type->array = (Array*)malloc(sizeof(Array));
+            Type* base = (Type*)malloc(sizeof(Type));
+            int size = atoi(curVar->children[2]->value);
+            processArray(curVar->node, base, $1);
+            type->array->base->base;
+            type->array->size = size;
+        }            
+        HashNode* hashNode = createHashNode(name, type);
+        insertIntoTypeTable(typeTable, hashNode);
+        curVar = curVar->next;
+    }
 }
 | Specifier SEMI {
     $$ = createNode("ExtDef", "", $1->line, 2, $1, createNode("SEMI", "", $2, 0));
+    //add struct type to type table
+    TreeNode* structSpecifier = $1->children[0];
+    Type* type = (Type*)malloc(sizeof(Type));
+    
 }
 | Specifier FunDec CompSt {
     $$ = createNode("ExtDef", "", $1->line, 3, $1, $2, $3);
@@ -348,6 +503,58 @@ $$.line = $1.line;}
 $$.line = $1.line;}
 ;
 %%
+
+void findTerminals(TreeNode* node, ListNode* list) {
+    if(node == NULL) return list;
+    if(node->empty) return list;
+    if(node->numChildren == 0) {
+        insertListNode(list, node);
+    }
+    for(int i = 0; i < node->numChildren; i++) {
+        list = traverseTree(node->children[i], list);
+    }
+    return list;
+}
+
+void findNode(TreeNode* node, ListNode* list, char* type){
+    if(node == NULL) return list;
+    if(node->empty) return list;
+    if(strcmp(node->type, type) == 0) {
+        insertListNode(list, node);
+    }
+    for(int i = 0; i < node->numChildren; i++) {
+        list = traverseTree(node->children[i], list);
+    }
+    return list;
+}
+
+TreeNode* createNode(char* type, char* value, int line, int numChildren, ...) {
+        TreeNode* newNode = (TreeNode*)malloc(sizeof(TreeNode));
+        newNode->type = strdup(type);
+        newNode->value = strdup(value);
+        newNode->line = line;
+        newNode->numChildren = numChildren;
+        newNode->empty = false;
+        //printf("the node is %s %s %d\n", type, value, line);
+        if (numChildren > 0) {
+            va_list args;
+            va_start(args, numChildren);
+            newNode->children = (TreeNode**)malloc(numChildren * (sizeof(TreeNode*) + 2));
+            for (int i = 0; i < numChildren; i++) {
+                newNode->children[i] = va_arg(args, TreeNode*);
+            }
+            va_end(args);
+        } else {
+            newNode->children = NULL;
+        }
+        return newNode;
+    }
+
+
+TreeNode* convertNull(TreeNode* node) {
+        node->empty = true;
+        return node;
+}
 
 void getOutputPath(const char *input_path, char *output_path, size_t output_path_size) {
     char *file_extension = strstr(input_path, ".spl");
