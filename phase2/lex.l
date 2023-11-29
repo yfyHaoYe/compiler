@@ -24,7 +24,7 @@ SIN_QUOTE "\'"
     char c; 
     while(true){
         c=input();
-        if (c== '\n'| c=='\0'){
+        if ((c== '\n')| (c=='\0')){
             break;
         }
     }; 

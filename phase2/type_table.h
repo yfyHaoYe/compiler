@@ -35,13 +35,14 @@ typedef struct HashNode {
 
 typedef struct {
     HashNode* buckets[TABLE_SIZE];
+    int isFilled[TABLE_SIZE];
 } TypeTable;
 
 unsigned int hashFunction(const char* name);
 
 HashNode* createHashNode(const char* name, Type* type);
 
-void insertIntoTypeTable(TypeTable* typeTable, const char* name, Type* type);
+int insertIntoTypeTable(TypeTable* typeTable, const char* name, Type* type);
 
 HashNode* getValuesFromTypeTable(TypeTable* typeTable, const char* name);
 

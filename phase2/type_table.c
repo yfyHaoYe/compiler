@@ -18,33 +18,40 @@ HashNode* createHashNode(const char* name, Type* type){
     strcpy(node->name, name);
     node->type = type;
     node->next = NULL;
+    return node;
 }
 
-void insertIntoTypeTable(TypeTable* typeTable, const char* name, Type* type){
+int insertIntoTypeTable(TypeTable* typeTable, const char* name, Type* type){
     unsigned int hash = hashFunction(name);
     HashNode* node = createHashNode(name, type);
     HashNode* currentNode = typeTable->buckets[hash];
-    while(currentNode != NULL){
-        if (strcmp(currentNode->name, name) == 0) {
-            /* HashNode* newValueNode = node;
-            newValueNode->next = currentNode->next;
-            currentNode->next = newValueNode; */
-            printf("duplicated specifier\n");
-            return;
+    int isFilled = typeTable->isFilled[hash];
+    if(isFilled == 1){
+        while(currentNode->next != NULL){
+            if (strcmp(currentNode->name, name) == 0) {
+                return 1;
+            }
+            currentNode = currentNode->next;
         }
-        currentNode = currentNode->next;
+        currentNode->next = node;
+    }else{
+        typeTable->isFilled[hash] = 1;
+        typeTable->buckets[hash] = node;
     }
-    typeTable->buckets[hash] = node;
+    return 0;
 }
 
 bool isContains(TypeTable* typeTable, const char* name){
     unsigned int hash = hashFunction(name);
     HashNode* currentNode = typeTable->buckets[hash];
-    while(currentNode != NULL){
-        if (strcmp(currentNode->name, name) == 0) {
-            return true;
+    int isFilled = typeTable->isFilled[hash];
+    if(isFilled == 1){
+        while(currentNode != NULL){
+            if (strcmp(currentNode->name, name) == 0) {
+                return true;
+            }
+            currentNode = currentNode->next;
         }
-        currentNode = currentNode->next;
     }
     return false;
 }

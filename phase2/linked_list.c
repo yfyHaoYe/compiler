@@ -13,13 +13,12 @@ ListNode* createListNode(TreeNode* node) {
     return newListNode;
 }
 
-void insertListNode(ListNode* head, TreeNode* node) {
+void insertListNode(ListNode** head, TreeNode* node) {
     ListNode* newListNode = createListNode(node);
-    if (head == NULL) {
-        head = newListNode;
+    if (*head == NULL) {
+        *head = newListNode;
     } else {
-        printf("there\n");
-        ListNode* current = head;
+        ListNode* current = *head;
         while (current->next != NULL) {
             current = current->next;
         }
@@ -27,8 +26,8 @@ void insertListNode(ListNode* head, TreeNode* node) {
     }
 }
 
-ListNode* searchListNode(ListNode* head, TreeNode* node) {
-    ListNode* current = head;
+ListNode* searchListNode(ListNode** head, TreeNode* node) {
+    ListNode* current = *head;
     while (current != NULL) {
         if (current->node == node) {
             return current;
@@ -38,17 +37,17 @@ ListNode* searchListNode(ListNode* head, TreeNode* node) {
     return NULL;
 }
 
-void deleteListNode(ListNode* head, TreeNode* node) {
-    if (head == NULL) {
+void deleteListNode(ListNode** head, TreeNode* node) {
+    if (*head == NULL) {
         printf("链表为空\n");
         return;
     }
-    ListNode* current = head;
+    ListNode* current = *head;
     ListNode* prev = NULL;
     while (current != NULL) {
         if (current->node == node) {
             if (prev == NULL) {
-                head = current->next;
+                *head = current->next;
             } else {
                 prev->next = current->next;
             }
@@ -62,13 +61,14 @@ void deleteListNode(ListNode* head, TreeNode* node) {
     printf("节点未找到\n");
 }
 
-void freeList(ListNode* head) {
-    ListNode* current = head;
+void freeList(ListNode** head) {
+    ListNode* current = *head;
     ListNode* next;
     while (current != NULL) {
         next = current->next;
         free(current);
         current = next;
     }
-    head = NULL;
+    *head = NULL;
+    free(head);
 }

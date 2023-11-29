@@ -7,8 +7,8 @@ typedef struct ListNode {
 }ListNode;
 
 ListNode* createListNode(TreeNode* node);
-void insertListNode(ListNode* head, TreeNode* node);
-ListNode* searchListNode(ListNode* head, TreeNode* node);
-void deleteListNode(ListNode* head, TreeNode* node);
-void freeList(ListNode* head);
+void insertListNode(ListNode** head, TreeNode* node);
+ListNode* searchListNode(ListNode** head, TreeNode* node);
+void deleteListNode(ListNode** head, TreeNode* node);
+void freeList(ListNode** head);
 #endif
