@@ -7,6 +7,7 @@
 
 typedef struct Type {
     char name[32];
+    int init;
     enum {PRIMITIVE, ARRAY, STRUCTURE} category;
     union{
         enum {INT, FLOAT, CHAR} primitive;
@@ -44,7 +45,7 @@ HashNode* createHashNode(char* name, Type* type);
 
 int insertIntoTypeTable(TypeTable* typeTable, char* name, Type* type);
 
-HashNode* getValuesFromTypeTable(TypeTable* typeTable, char* name);
+Type* getType(TypeTable* typeTable, char* name);
 
 void freeTypeTable(TypeTable* typeTable);
 

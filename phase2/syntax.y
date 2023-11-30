@@ -21,6 +21,7 @@
     void processArray(TreeNode* varDec, Type* type, TreeNode* specifier);
     void processStruct(TreeNode* structSpecifier, Type* type);
     void freeTree(TreeNode* node);
+    Type* checkExp(TreeNode* Exp);
 
 %}
 %union {
@@ -53,6 +54,7 @@ Program : ExtDefList {
     }
     if(!error){
         //printParseTree($$, 0);
+        //检查未定义变量
         ListNode** defList = (ListNode**)malloc(sizeof(ListNode*));
         *defList = NULL;
         findNode($1, defList, "Def");
@@ -113,6 +115,12 @@ Program : ExtDefList {
             }
             curStmt = curStmt->next;
         }
+        //检查运算变量是否合法
+        curStmt = *stmtList;
+        while(curStmt != NULL){
+            checkExp(curStmt->node->children[0]);
+            curStmt = curStmt->next;
+        }
         free(stmtList);
         freeTree($$);
     }
@@ -130,20 +138,26 @@ ExtDef : Specifier ExtDecList SEMI {
     $$ = createNode("ExtDef", "", $1->line, 3, $1, $2, createNode("SEMI", "", $3, 0));
     //add primitive type to type table
     TreeNode* cur = $2;
-    ListNode** varDecList = (ListNode**)malloc(sizeof(ListNode*));
-    *varDecList = NULL;
-    findNode(cur, varDecList, "VarDec");
-    ListNode* curVar = *varDecList;
+    ListNode** decList = (ListNode**)malloc(sizeof(ListNode*));
+    *decList = NULL;
+    findNode(cur, decList, "Dec");
+    ListNode* curDec = *decList;
     char* name;
     int curLine;
-    while(curVar != NULL){
+    while(curDec != NULL){
+        TreeNode* varDec = curDec->node->children[0];
         Type* type = (Type*)malloc(sizeof(Type));
-        if(curVar->node->numChildren == 1){
+        if(curDec->node->numChildren == 3){
+            type->init = 1;
+        }else{
+            type->init = 0;
+        }
+        if(varDec->numChildren == 1){
             //普通变量
-            name = curVar->node->children[0]->value;
+            name = varDec->children[0]->value;
             strcpy(type->name, name);
             type->category = PRIMITIVE;
-            curLine = curVar->node->children[0]->line;
+            curLine = varDec->children[0]->line;
             char* typeName = $1->children[0]->value;
             if(strcmp(typeName, "int") == 0){
                 type->primitive = INT;
@@ -154,14 +168,14 @@ ExtDef : Specifier ExtDecList SEMI {
             }
         }else{
             //数组
-            name = curVar->node->children[2]->value;
+            name = varDec->children[2]->value;
             strcpy(type->name, name);
             type->category = ARRAY;
-            curLine = curVar->node->children[2]->line;
+            curLine = varDec->children[2]->line;
             type->array = (Array*)malloc(sizeof(Array));
             Type* base = (Type*)malloc(sizeof(Type));
-            int size = atoi(curVar->node->children[2]->value);
-            processArray(curVar->node, base, $1);
+            int size = atoi(varDec->children[2]->value);
+            processArray(varDec, base, $1);
             type->array->base = base;
             type->array->size = size;
         }
@@ -173,9 +187,9 @@ ExtDef : Specifier ExtDecList SEMI {
             strcpy(errorMsg + 10 + strlen(name), "\" is redefined in the same scope");
             typeError(errorMsg, 3, curLine);
         }
-        curVar = curVar->next;
+        curDec = curDec->next;
     }
-    freeList(varDecList);
+    freeList(decList);
 }
 | Specifier SEMI {
     $$ = createNode("ExtDef", "", $1->line, 2, $1, createNode("SEMI", "", $2, 0));
@@ -377,8 +391,7 @@ Dec : VarDec {
     $$ = createNode("Dec", "", $1->line, 1, $1);
 }
 | VarDec ASSIGN Exp {
-    $$ = createNode("Dec", "", $1->line, 3, $1, createNode("ASSIGN", "", $2, 0), $3);
-    
+    $$ = createNode("Dec", "", $1->line, 3, $1, createNode("ASSIGN", "", $2, 0), $3);    
 }
 ;
 /* Expression */
@@ -488,6 +501,68 @@ $$.line = $1.line;}
 $$.line = $1.line;}
 ;
 %%
+Type* checkExp(TreeNode* Exp){
+    if(Exp->numChildren == 3){
+        //Exp ASSIGN Exp
+        Type* left = checkExp(Exp->children[0]);
+        Type* right = checkExp(Exp->children[2]);
+        if(left == NULL || right == NULL) return NULL;
+        if(strcmp(Exp->children[1]->type, "ASSIGN") == 0){
+            if(left->category == PRIMITIVE && right->category == PRIMITIVE){
+                if(left->primitive != right->primitive){
+                    typeError("unmatching type on both sides of assignment", 5, Exp->children[1]->line);
+                }
+            }else{
+                typeError("unmatching type on both sides of assignment", 5, Exp->children[1]->line);
+            }
+        }else if(strcmp(Exp->children[1]->type, "PLUS") == 0 || strcmp(Exp->children[1]->type, "MINUS") == 0 || strcmp(Exp->children[1]->type, "MUL") == 0 || strcmp(Exp->children[1]->type, "DIV") == 0){
+            if(left->category == PRIMITIVE && right->category == PRIMITIVE){
+                int wrong = 0;
+                if(left->primitive != right->primitive){
+                    wrong = 1;
+                    typeError("unmatching operand", 7, Exp->children[1]->line);
+                }
+                if(left->init == 0 || right->init == 0){
+                    wrong = 0;
+                    typeError("binary operation on non-nunmber varibles", 7, Exp->line);                
+                }
+                if(wrong == 0){
+                    return left;
+                }
+            }else{
+                typeError("unmatching operand", 7, Exp->children[1]->line);
+            }
+        }else if(strcmp(Exp->children[1]->type, "AND") == 0 || strcmp(Exp->children[1]->type, "OR") == 0){
+            if(left->category == PRIMITIVE && right->category == PRIMITIVE && left->primitive == INT && right->primitive == INT){
+                if(left->primitive != right->primitive){
+                    typeError("unmatching operand", 5, Exp->children[1]->line);
+                }
+            }else{
+                typeError("unmatching operand", 5, Exp->children[1]->line);
+            }
+        }
+    }else if(Exp->numChildren == 2){
+        Type* type = checkExp(Exp->children[1]);
+        if(strcmp(Exp->children[0]->type, "MINUS") == 0 || strcmp(Exp->children[0]->type, "NOT") == 0){
+            if(type->category == PRIMITIVE && type->primitive == INT){
+                return type;
+            }else{
+                typeError("unmatching operand", 7, Exp->children[0]->line);
+            }
+        }
+    }else if(Exp->numChildren == 1){
+        if(strcmp(Exp->children[0]->type, "ID") == 0){
+            char* name = Exp->children[0]->value;
+            Type* type = getType(typeTable, name);
+            return type;
+        }else{
+            Type* type = checkExp(Exp->children[0]);
+            return type;
+        }
+    }
+    return NULL;
+}
+
 void processStruct(TreeNode* structSpecifier, Type* type){
     if(structSpecifier->numChildren == 5){
         //同时使用struct ID和别名ID,Type类型中存真名，table中存进别名

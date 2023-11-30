@@ -27,13 +27,15 @@ int insertIntoTypeTable(TypeTable* typeTable, char* name, Type* type){
     HashNode* currentNode = typeTable->buckets[hash];
     int isFilled = typeTable->isFilled[hash];   
     if(isFilled == 1){
+        HashNode* pre;
         while(currentNode != NULL){
             if (strcmp(currentNode->name, name) == 0) {
                 return 1;
             }
+            pre = currentNode;
             currentNode = currentNode->next;
         }
-        currentNode->next = node;
+        pre->next = node;
     }else{
         typeTable->isFilled[hash] = 1;
         typeTable->buckets[hash] = node;
@@ -56,13 +58,13 @@ bool isContains(TypeTable* typeTable, char* name){
     return false;
 }
 
-HashNode* getValuesFromTypeTable(TypeTable* typeTable, char* name) {
+Type* getType(TypeTable* typeTable, char* name) {
     unsigned int hash = hashFunction(name);
     HashNode* currentNode = typeTable->buckets[hash];
 
     while (currentNode != NULL) {
         if (strcmp(currentNode->name, name) == 0) {
-            return currentNode;
+            return currentNode->type;
         }
         currentNode = currentNode->next;
     }
