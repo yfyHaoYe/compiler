@@ -25,9 +25,9 @@ int insertIntoTypeTable(TypeTable* typeTable, char* name, Type* type){
     unsigned int hash = hashFunction(name);   
     HashNode* node = createHashNode(name, type);
     HashNode* currentNode = typeTable->buckets[hash];
-    int isFilled = typeTable->isFilled[hash];    
+    int isFilled = typeTable->isFilled[hash];   
     if(isFilled == 1){
-        while(currentNode->next != NULL){
+        while(currentNode != NULL){
             if (strcmp(currentNode->name, name) == 0) {
                 return 1;
             }

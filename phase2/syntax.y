@@ -73,7 +73,7 @@ Program : ExtDefList {
                         char* name = curId->node->value;
                         int len = strlen(name);
                         if(!isContains(typeTable, name)){
-                            char* errorMsg = (char*)malloc(50);
+                            char errorMsg[50];
                             strcpy(errorMsg, name);
                             strcpy(errorMsg + len, " is used without a definition");
                             typeError(errorMsg, 1, curId->node->line);
@@ -102,7 +102,7 @@ Program : ExtDefList {
                     char* name = curId->node->value;
                     int len = strlen(name);
                     if(!isContains(typeTable, name)){
-                        char* errorMsg = (char*)malloc(50);
+                        char errorMsg[50];
                         strcpy(errorMsg, name);
                         strcpy(errorMsg + len, " is used without a definition");
                         typeError(errorMsg, 1, curId->node->line);
@@ -167,9 +167,10 @@ ExtDef : Specifier ExtDecList SEMI {
         }
         int wrong = insertIntoTypeTable(typeTable, name, type);
         if(wrong == 1){
-            char* errorMsg = malloc(50);
-            strcpy(errorMsg, name);
-            strcpy(errorMsg + strlen(name), " is redefined in the same scope");
+            char errorMsg[50];
+            strcpy(errorMsg, "variable \"");
+            strcpy(errorMsg + 10, name);
+            strcpy(errorMsg + 10 + strlen(name), "\" is redefined in the same scope");
             typeError(errorMsg, 3, curLine);
         }
         curVar = curVar->next;
@@ -317,7 +318,7 @@ DefList : Def DefList {
 }
 ;
 Def : Specifier DecList SEMI {
-    //一边使用变量，一边定义变量，检查是否定义
+    //可能是int a;也可能是int a= b;
     $$ = createNode("Def", "", $1->line, 3, $1, $2, createNode("SEMI", "", $3, 0));
     TreeNode* specifier = $1;
     ListNode** decList = (ListNode**)malloc(sizeof(ListNode*));
@@ -325,37 +326,38 @@ Def : Specifier DecList SEMI {
     findNode($2, decList, "Dec");
     ListNode* curDec = *decList;
     while(curDec != NULL){
-        if(curDec->node->numChildren == 3){
-            TreeNode* varDec = curDec->node->children[0];
-            if(varDec->numChildren == 1){
-                TreeNode* id = varDec->children[0];
-                char* name = id->value;
-                Type* type = (Type*)malloc(sizeof(Type));
+        TreeNode* varDec = curDec->node->children[0];
+        if(varDec->numChildren == 1){
+            TreeNode* id = varDec->children[0];
+            char* name = id->value;
+            Type* type = (Type*)malloc(sizeof(Type));
+            if(strcmp(specifier->children[0]->type, "TYPE") == 0){
                 type->category = PRIMITIVE;
                 strcpy(type->name, name);
-                if(strcmp(specifier->children[0]->type, "TYPE") == 0){
-                    type->category = PRIMITIVE;
-                    char* typeName = specifier->children[0]->value;
-                    if(strcmp(typeName, "int") == 0){
-                        type->primitive = INT;
-                    }else if(strcmp(typeName, "float") == 0){
-                        type->primitive = FLOAT;
-                    }else if(strcmp(typeName, "char") == 0){
-                        type->primitive = CHAR;
-                    }
+                char* typeName = specifier->children[0]->value;
+                if(strcmp(typeName, "int") == 0){
+                    type->primitive = INT;
+                }else if(strcmp(typeName, "float") == 0){
+                    type->primitive = FLOAT;
+                }else if(strcmp(typeName, "char") == 0){
+                    type->primitive = CHAR;
                 }
-                int wrong = insertIntoTypeTable(typeTable, name, type);
-                if(wrong == 1){
-                    char* errorMsg = malloc(50);
-                    strcpy(errorMsg, name);
-                    strcpy(errorMsg + strlen(name), " is redefined in the same scope");
-                    typeError(errorMsg, 3, id->line);
-                }
+            }else{
+                type->category = STRUCTURE;
+                strcpy(type->name, name);
+                processStruct(specifier->children[0], type);
+            }
+            int wrong = insertIntoTypeTable(typeTable, name, type);
+            if(wrong == 1){
+                char errorMsg[50];
+                strcpy(errorMsg, "variable \"");
+                strcpy(errorMsg + 10, name);
+                strcpy(errorMsg + 10 + strlen(name), "\" is redefined in the same scope");
+                typeError(errorMsg, 3, id->line);
             }
         }
         curDec = curDec->next;
     }
-
 }
 | Specifier DecList error {
     yyerror(" Missing semicolon ';'");
@@ -487,7 +489,7 @@ $$.line = $1.line;}
 ;
 %%
 void processStruct(TreeNode* structSpecifier, Type* type){
-    if(structSpecifier->numChildren == 2){
+    if(structSpecifier->numChildren == 5){
         //同时使用struct ID和别名ID,Type类型中存真名，table中存进别名
         strcpy(type->name, structSpecifier->children[1]->value);
         type->category = STRUCTURE;
@@ -527,13 +529,14 @@ void processStruct(TreeNode* structSpecifier, Type* type){
                         curField->next = (FieldList*)malloc(sizeof(FieldList));
                         curField = curField->next;
                         //struct内部变量
-                        int wrong = insertIntoTypeTable(typeTable, name, subType);
+                        /* int wrong = insertIntoTypeTable(typeTable, name, subType);
                         if(wrong == 1){
-                            char* errorMsg = malloc(50);
-                            strcpy(errorMsg, name);
-                            strcpy(errorMsg + strlen(name), " is redefined in the same scope");
+                            char errorMsg[50];
+                            strcpy(errorMsg, "variable \"");
+                            strcpy(errorMsg + 10, name);
+                            strcpy(errorMsg + 10 + strlen(name), "\" is redefined in the same scope");
                             typeError(errorMsg, 3, id->line);
-                        }
+                        } */
                     }else{
                         //数组
                         ListNode** idList = (ListNode**)malloc(sizeof(ListNode*));
@@ -561,15 +564,17 @@ void processStruct(TreeNode* structSpecifier, Type* type){
                         }
                         subType->array->base = base;
                         subType->array->size = size;
-                        int wrong = insertIntoTypeTable(typeTable, name, subType);
+                        /* int wrong = insertIntoTypeTable(typeTable, name, subType);
                         if(wrong == 1){
-                            char* errorMsg = malloc(50);
-                            strcpy(errorMsg, name);
-                            strcpy(errorMsg + strlen(name), " is redefined in the same scope");
+                            char errorMsg[50];
+                            strcpy(errorMsg, "variable \"");
+                            strcpy(errorMsg + 10, name);
+                            strcpy(errorMsg + 10 + strlen(name), "\" is redefined in the same scope");
                             typeError(errorMsg, 3, id->line);
-                        }
+                        } */
                         freeList(idList);
                     }
+                    curVar = curVar->next;
                 }
                 freeList(varDecList);
             }else{
@@ -586,26 +591,34 @@ void processStruct(TreeNode* structSpecifier, Type* type){
                         TreeNode* id = curVar->node->children[0];
                         name = id->value;
                     }
-                    int wrong = insertIntoTypeTable(typeTable, name, subType);
+                    /* int wrong = insertIntoTypeTable(typeTable, name, subType);
                     if(wrong == 1){
-                        char* errorMsg = malloc(50);
-                        strcpy(errorMsg, name);
-                        strcpy(errorMsg + strlen(name), " is redefined in the same scope");
+                        char errorMsg[50];
+                        strcpy(errorMsg, "variable \"");
+                        strcpy(errorMsg + 10, name);
+                        strcpy(errorMsg + 10 + strlen(name), "\" is redefined in the same scope");
                         typeError(errorMsg, 3,curVar->node->children[0]->line);
-                    }
+                    } */
+                    curVar = curVar->next;
                 }
                 freeList(varDecList);
             }
+            curNode = curNode->next;
         }
         //struct本身
         int wrong = insertIntoTypeTable(typeTable, structSpecifier->children[1]->value, type);
         if(wrong == 1){
-            char* errorMsg = malloc(50);
-            strcpy(errorMsg, structSpecifier->children[1]->value);
-            strcpy(errorMsg + strlen(structSpecifier->children[1]->value), " is redefined in the same scope");
+            char errorMsg[50];
+            strcpy(errorMsg, "variable \"");
+            strcpy(errorMsg + 10, structSpecifier->children[1]->value);
+            strcpy(errorMsg + 10 + strlen(structSpecifier->children[1]->value), "\" is redefined in the same scope");
             typeError(errorMsg, 3,structSpecifier->children[1]->line);
         }
         freeList(defList);
+    }else{
+        strcpy(type->name, structSpecifier->children[1]->value);
+        type->category = STRUCTURE;
+        type-> structure = NULL;
     }
 }
 
