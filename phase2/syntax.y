@@ -9,7 +9,7 @@
     #include "lex_interface.h"
     #include <stdbool.h>
     char* convertToDec(char*);
-    int typeError(const char *msg, int type);
+    int typeError(const char *msg, int type, int line);
     int yyerror(const char *);
     TypeTable* typeTable;
     void findNode(TreeNode* node, ListNode** list, char* type);
@@ -53,6 +53,67 @@ Program : ExtDefList {
     }
     if(!error){
         //printParseTree($$, 0);
+        ListNode** defList = (ListNode**)malloc(sizeof(ListNode*));
+        *defList = NULL;
+        findNode($1, defList, "Def");
+        ListNode* curDef = *defList;
+        while(curDef != NULL){
+            ListNode** decList = (ListNode**)malloc(sizeof(ListNode*));
+            *decList = NULL;
+            findNode(curDef->node, decList, "Dec");
+            ListNode* curDec = *decList;
+            while(curDec != NULL){
+                if(curDec->node->numChildren == 3){
+                    TreeNode* exp = curDec->node->children[2];
+                    ListNode** idList = (ListNode**)malloc(sizeof(ListNode*));
+                    *idList = NULL;
+                    findNode(exp, idList, "ID");
+                    ListNode* curId = *idList;
+                    while(curId != NULL){
+                        char* name = curId->node->value;
+                        int len = strlen(name);
+                        if(!isContains(typeTable, name)){
+                            char* errorMsg = (char*)malloc(50);
+                            strcpy(errorMsg, name);
+                            strcpy(errorMsg + len, " is used without a definition");
+                            typeError(errorMsg, 1, curId->node->line);
+                        }
+                        curId = curId->next;
+                    }
+                }
+                curDec = curDec->next;
+            }
+            free(decList);
+            curDef = curDef->next;
+        }
+        free(defList);
+        ListNode** stmtList = (ListNode**)malloc(sizeof(ListNode*));
+        *stmtList = NULL;
+        findNode($1, stmtList, "Stmt");
+        ListNode* curStmt = *stmtList;
+        while(curStmt != NULL){
+            if(curStmt->node->numChildren == 2){
+                TreeNode* exp = curStmt->node->children[0];
+                ListNode** idList = (ListNode**)malloc(sizeof(ListNode*));
+                *idList = NULL;
+                findNode(exp, idList, "ID");
+                ListNode* curId = *idList;
+                while(curId != NULL){
+                    char* name = curId->node->value;
+                    int len = strlen(name);
+                    if(!isContains(typeTable, name)){
+                        char* errorMsg = (char*)malloc(50);
+                        strcpy(errorMsg, name);
+                        strcpy(errorMsg + len, " is used without a definition");
+                        typeError(errorMsg, 1, curId->node->line);
+                    }
+                    curId = curId->next;
+                }
+                free(idList);
+            }
+            curStmt = curStmt->next;
+        }
+        free(stmtList);
         freeTree($$);
     }
 }
@@ -74,6 +135,7 @@ ExtDef : Specifier ExtDecList SEMI {
     findNode(cur, varDecList, "VarDec");
     ListNode* curVar = *varDecList;
     char* name;
+    int curLine;
     while(curVar != NULL){
         Type* type = (Type*)malloc(sizeof(Type));
         if(curVar->node->numChildren == 1){
@@ -81,6 +143,7 @@ ExtDef : Specifier ExtDecList SEMI {
             name = curVar->node->children[0]->value;
             strcpy(type->name, name);
             type->category = PRIMITIVE;
+            curLine = curVar->node->children[0]->line;
             char* typeName = $1->children[0]->value;
             if(strcmp(typeName, "int") == 0){
                 type->primitive = INT;
@@ -94,6 +157,7 @@ ExtDef : Specifier ExtDecList SEMI {
             name = curVar->node->children[2]->value;
             strcpy(type->name, name);
             type->category = ARRAY;
+            curLine = curVar->node->children[2]->line;
             type->array = (Array*)malloc(sizeof(Array));
             Type* base = (Type*)malloc(sizeof(Type));
             int size = atoi(curVar->node->children[2]->value);
@@ -102,6 +166,12 @@ ExtDef : Specifier ExtDecList SEMI {
             type->array->size = size;
         }
         int wrong = insertIntoTypeTable(typeTable, name, type);
+        if(wrong == 1){
+            char* errorMsg = malloc(50);
+            strcpy(errorMsg, name);
+            strcpy(errorMsg + strlen(name), " is redefined in the same scope");
+            typeError(errorMsg, 3, curLine);
+        }
         curVar = curVar->next;
     }
     freeList(varDecList);
@@ -115,12 +185,14 @@ ExtDef : Specifier ExtDecList SEMI {
 }
 | Specifier FunDec CompSt {
     $$ = createNode("ExtDef", "", $1->line, 3, $1, $2, $3);
+    //函数定义,函数参数定义FunDec
+    
 }
 | Specifier error {
-    //yyerror(" Missing semicolon ';'");
+    yyerror(" Missing semicolon ';'");
 }
 | Specifier ExtDecList error {
-    //yyerror(" Missing semicolon ';'");
+    yyerror(" Missing semicolon ';'");
 }
 ;
 ExtDecList : VarDec {
@@ -154,7 +226,7 @@ VarDec : ID {
     $$ = createNode("VarDec", "", $1->line, 4, $1, createNode("LB", "", $2, 0), createNode("INT", $3.string, $3.line, 0), createNode("RB", "", $4, 0));
 }
 | VarDec LB INT error {
-    //yyerror(" Missing closing square bracket ']'");
+    yyerror(" Missing closing square bracket ']'");
 }
 ;
 FunDec : ID LP VarList RP {
@@ -164,10 +236,10 @@ FunDec : ID LP VarList RP {
     $$ = createNode("FunDec", "", $1.line, 3, createNode("ID", $1.string, $1.line, 0), createNode("LP", "", $2, 0), createNode("RP", "", $3, 0));
 }
 |ID LP VarList error {
-    //yyerror(" Missing closing parenthesis ')'");
+    yyerror(" Missing closing parenthesis ')'");
 }
 |ID LP error {
-    //yyerror(" Missing closing parenthesis ')'");
+    yyerror(" Missing closing parenthesis ')'");
 }
 ;
 VarList : ParamDec COMMA VarList {
@@ -195,6 +267,7 @@ StmtList : Stmt StmtList {
 ;
 Stmt : Exp SEMI {
     $$ = createNode("Stmt", "", $1->line, 2, $1, createNode("SEMI", "", $2, 0));
+    //两边都使用变量，检查是否定义
 }
 | CompSt {
     $$ = createNode("Stmt", "", $1->line, 1, $1);
@@ -212,26 +285,26 @@ Stmt : Exp SEMI {
     $$ = createNode("Stmt", "", $1, 5, createNode("WHILE", "", $1, 0), createNode("LP", "", $2, 0), $3, createNode("RP", "", $4, 0), $5);
 }
 | Exp error {
-    //yyerror(" Missing semicolon ';'");
+    yyerror(" Missing semicolon ';'");
 }
 | RETURN Exp error {
-    //yyerror(" Missing semicolon ';'");
+    yyerror(" Missing semicolon ';'");
 }
 | ErrorStmt Exp RP Stmt {}
 | ErrorStmt Stmt %prec LOWER {}
 | ErrorStmt Stmt ELSE Stmt {}
 ;
 ErrorStmt: IF LP Exp error{
-    //yyerror(" Missing closing parenthesis ')'");
+    yyerror(" Missing closing parenthesis ')'");
 }
 | WHILE LP Exp error {
-    //yyerror(" Missing closing parenthesis ')'");
+    yyerror(" Missing closing parenthesis ')'");
 }
 | WHILE error {
-    //yyerror(" Missing opening parenthesis '('");
+    yyerror(" Missing opening parenthesis '('");
 }
 | IF error {
-    //yyerror(" Missing opening parenthesis '('");
+    yyerror(" Missing opening parenthesis '('");
 }
 ;
 /* local definition */
@@ -244,13 +317,51 @@ DefList : Def DefList {
 }
 ;
 Def : Specifier DecList SEMI {
+    //一边使用变量，一边定义变量，检查是否定义
     $$ = createNode("Def", "", $1->line, 3, $1, $2, createNode("SEMI", "", $3, 0));
+    TreeNode* specifier = $1;
+    ListNode** decList = (ListNode**)malloc(sizeof(ListNode*));
+    *decList = NULL;
+    findNode($2, decList, "Dec");
+    ListNode* curDec = *decList;
+    while(curDec != NULL){
+        if(curDec->node->numChildren == 3){
+            TreeNode* varDec = curDec->node->children[0];
+            if(varDec->numChildren == 1){
+                TreeNode* id = varDec->children[0];
+                char* name = id->value;
+                Type* type = (Type*)malloc(sizeof(Type));
+                type->category = PRIMITIVE;
+                strcpy(type->name, name);
+                if(strcmp(specifier->children[0]->type, "TYPE") == 0){
+                    type->category = PRIMITIVE;
+                    char* typeName = specifier->children[0]->value;
+                    if(strcmp(typeName, "int") == 0){
+                        type->primitive = INT;
+                    }else if(strcmp(typeName, "float") == 0){
+                        type->primitive = FLOAT;
+                    }else if(strcmp(typeName, "char") == 0){
+                        type->primitive = CHAR;
+                    }
+                }
+                int wrong = insertIntoTypeTable(typeTable, name, type);
+                if(wrong == 1){
+                    char* errorMsg = malloc(50);
+                    strcpy(errorMsg, name);
+                    strcpy(errorMsg + strlen(name), " is redefined in the same scope");
+                    typeError(errorMsg, 3, id->line);
+                }
+            }
+        }
+        curDec = curDec->next;
+    }
+
 }
 | Specifier DecList error {
-    //yyerror(" Missing semicolon ';'");
+    yyerror(" Missing semicolon ';'");
 }
 | error DecList SEMI {
-    //yyerror(" Missing Specifier");
+    yyerror(" Missing Specifier");
 }
 ;
 DecList : Dec {
@@ -265,22 +376,7 @@ Dec : VarDec {
 }
 | VarDec ASSIGN Exp {
     $$ = createNode("Dec", "", $1->line, 3, $1, createNode("ASSIGN", "", $2, 0), $3);
-    ListNode** idList = (ListNode**)malloc(sizeof(ListNode*));
-    *idList = NULL;
-    findNode($3, idList, "ID");
-    //printf("idList is %d\n", $3->line);
-    ListNode* curId = *idList;
-    while(curId != NULL){
-        char* name = curId->node->value;
-        int len = strlen(name);
-        char* errorMsg = malloc(50);
-        strcpy(errorMsg, name);
-        strcpy(errorMsg + len, " is used without a definition");
-        if(!isContains(typeTable, name)){
-            typeError(errorMsg, 1);
-        }
-        curId = curId->next;
-    }
+    
 }
 ;
 /* Expression */
@@ -360,16 +456,16 @@ Exp : Exp ASSIGN Exp {
     $$ = createNode("Exp", "", $1.line, 4, createNode("ID", $1.string, $1.line, 0), createNode("LP", "", $2, 0), $3, createNode("RP", "", $2, 0));
 }
 | ID LP Args error {
-    //yyerror(" Missing closing parenthesis ')'");
+    yyerror(" Missing closing parenthesis ')'");
 }
 | ID LP error {
-    //yyerror(" Missing closing parenthesis ')'");
+    yyerror(" Missing closing parenthesis ')'");
 }
 | Exp LB Exp error {
-    //yyerror(" Missing closing square bracket ']'");
+    yyerror(" Missing closing square bracket ']'");
 }
 | LP Exp error {
-    //yyerror(" Missing closing parenthesis ')'");
+    yyerror(" Missing closing parenthesis ')'");
 }
 ;
 Args : Exp COMMA Args {
@@ -432,6 +528,12 @@ void processStruct(TreeNode* structSpecifier, Type* type){
                         curField = curField->next;
                         //struct内部变量
                         int wrong = insertIntoTypeTable(typeTable, name, subType);
+                        if(wrong == 1){
+                            char* errorMsg = malloc(50);
+                            strcpy(errorMsg, name);
+                            strcpy(errorMsg + strlen(name), " is redefined in the same scope");
+                            typeError(errorMsg, 3, id->line);
+                        }
                     }else{
                         //数组
                         ListNode** idList = (ListNode**)malloc(sizeof(ListNode*));
@@ -460,6 +562,12 @@ void processStruct(TreeNode* structSpecifier, Type* type){
                         subType->array->base = base;
                         subType->array->size = size;
                         int wrong = insertIntoTypeTable(typeTable, name, subType);
+                        if(wrong == 1){
+                            char* errorMsg = malloc(50);
+                            strcpy(errorMsg, name);
+                            strcpy(errorMsg + strlen(name), " is redefined in the same scope");
+                            typeError(errorMsg, 3, id->line);
+                        }
                         freeList(idList);
                     }
                 }
@@ -479,12 +587,24 @@ void processStruct(TreeNode* structSpecifier, Type* type){
                         name = id->value;
                     }
                     int wrong = insertIntoTypeTable(typeTable, name, subType);
+                    if(wrong == 1){
+                        char* errorMsg = malloc(50);
+                        strcpy(errorMsg, name);
+                        strcpy(errorMsg + strlen(name), " is redefined in the same scope");
+                        typeError(errorMsg, 3,curVar->node->children[0]->line);
+                    }
                 }
                 freeList(varDecList);
             }
         }
         //struct本身
         int wrong = insertIntoTypeTable(typeTable, structSpecifier->children[1]->value, type);
+        if(wrong == 1){
+            char* errorMsg = malloc(50);
+            strcpy(errorMsg, structSpecifier->children[1]->value);
+            strcpy(errorMsg + strlen(structSpecifier->children[1]->value), " is redefined in the same scope");
+            typeError(errorMsg, 3,structSpecifier->children[1]->line);
+        }
         freeList(defList);
     }
 }
@@ -549,7 +669,6 @@ TreeNode* createNode(char* type, char* value, int line, int numChildren, ...) {
     newNode->line = line;
     newNode->numChildren = numChildren;
     newNode->empty = false;
-    //printf("the node is %s %s %d\n", type, value, line);
     if (numChildren > 0) {
         va_list args;
         va_start(args, numChildren);
@@ -623,7 +742,7 @@ void printParseTree(TreeNode* node, int level) {
     }
 }
 
-int typeError(const char *msg, int type){
+int typeError(const char *msg, int type, int line){
     printf("Error type %d at Line %d:%s\n", type, line, msg);
     fprintf(output_file, "Error type %d at Line %d:%s\n",type, line, msg);
     return 0;

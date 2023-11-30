@@ -38,16 +38,16 @@ typedef struct {
     int isFilled[TABLE_SIZE];
 } TypeTable;
 
-unsigned int hashFunction(const char* name);
+unsigned int hashFunction(char* name);
 
-HashNode* createHashNode(const char* name, Type* type);
+HashNode* createHashNode(char* name, Type* type);
 
-int insertIntoTypeTable(TypeTable* typeTable, const char* name, Type* type);
+int insertIntoTypeTable(TypeTable* typeTable, char* name, Type* type);
 
-HashNode* getValuesFromTypeTable(TypeTable* typeTable, const char* name);
+HashNode* getValuesFromTypeTable(TypeTable* typeTable, char* name);
 
 void freeTypeTable(TypeTable* typeTable);
 
-bool isContains(TypeTable* typeTable, const char* name);
+bool isContains(TypeTable* typeTable, char* name);
 #endif
 

@@ -3,7 +3,7 @@
 #include<stdio.h>
 #include<stdbool.h>
 
-unsigned int hashFunction(const char* name){
+unsigned int hashFunction(char* name){
     unsigned int hash = 0;
     unsigned int i;
     unsigned int len = strlen(name);
@@ -13,19 +13,19 @@ unsigned int hashFunction(const char* name){
     return hash % TABLE_SIZE;
 }
 
-HashNode* createHashNode(const char* name, Type* type){
+HashNode* createHashNode(char* name, Type* type){
     HashNode* node = (HashNode*)malloc(sizeof(HashNode));
-    strcpy(node->name, name);
+    node->name = name;
     node->type = type;
     node->next = NULL;
     return node;
 }
 
-int insertIntoTypeTable(TypeTable* typeTable, const char* name, Type* type){
-    unsigned int hash = hashFunction(name);
+int insertIntoTypeTable(TypeTable* typeTable, char* name, Type* type){
+    unsigned int hash = hashFunction(name);   
     HashNode* node = createHashNode(name, type);
     HashNode* currentNode = typeTable->buckets[hash];
-    int isFilled = typeTable->isFilled[hash];
+    int isFilled = typeTable->isFilled[hash];    
     if(isFilled == 1){
         while(currentNode->next != NULL){
             if (strcmp(currentNode->name, name) == 0) {
@@ -41,7 +41,7 @@ int insertIntoTypeTable(TypeTable* typeTable, const char* name, Type* type){
     return 0;
 }
 
-bool isContains(TypeTable* typeTable, const char* name){
+bool isContains(TypeTable* typeTable, char* name){
     unsigned int hash = hashFunction(name);
     HashNode* currentNode = typeTable->buckets[hash];
     int isFilled = typeTable->isFilled[hash];
@@ -56,7 +56,7 @@ bool isContains(TypeTable* typeTable, const char* name){
     return false;
 }
 
-HashNode* getValuesFromTypeTable(TypeTable* typeTable, const char* name) {
+HashNode* getValuesFromTypeTable(TypeTable* typeTable, char* name) {
     unsigned int hash = hashFunction(name);
     HashNode* currentNode = typeTable->buckets[hash];
 
