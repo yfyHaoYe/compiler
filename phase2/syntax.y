@@ -135,6 +135,7 @@ ExtDefList : ExtDef ExtDefList {
 }
 ;
 ExtDef : Specifier ExtDecList SEMI {
+    //静态变量
     $$ = createNode("ExtDef", "", $1->line, 3, $1, $2, createNode("SEMI", "", $3, 0));
     //add primitive type to type table
     TreeNode* cur = $2;
@@ -197,6 +198,15 @@ ExtDef : Specifier ExtDecList SEMI {
     TreeNode* structSpecifier = $1->children[0];
     Type* type = (Type*)malloc(sizeof(Type));
     processStruct(structSpecifier, type);
+    char* name = structSpecifier->children[1]->value;
+    int wrong = insertIntoTypeTable(typeTable, structSpecifier->children[1]->value, type);
+    if(wrong == 1){
+        char errorMsg[50];
+        strcpy(errorMsg, "variable \"");
+        strcpy(errorMsg + 10, name);
+        strcpy(errorMsg + 10 + strlen(name), "\" is redefined in the same scope");
+        typeError(errorMsg, 3,structSpecifier->children[1]->line);
+    }
 }
 | Specifier FunDec CompSt {
     $$ = createNode("ExtDef", "", $1->line, 3, $1, $2, $3);
@@ -333,6 +343,7 @@ DefList : Def DefList {
 ;
 Def : Specifier DecList SEMI {
     //可能是int a;也可能是int a= b;
+    //大括号内部
     $$ = createNode("Def", "", $1->line, 3, $1, $2, createNode("SEMI", "", $3, 0));
     TreeNode* specifier = $1;
     ListNode** decList = (ListNode**)malloc(sizeof(ListNode*));
@@ -506,16 +517,71 @@ Type* checkExp(TreeNode* Exp){
         //Exp ASSIGN Exp
         Type* left = checkExp(Exp->children[0]);
         Type* right = checkExp(Exp->children[2]);
-        if(left == NULL || right == NULL) return NULL;
         if(strcmp(Exp->children[1]->type, "ASSIGN") == 0){
+            if(Exp->children[0]->numChildren == 1 && strcmp(Exp->children[2]->children[0]->type, "ID") != 0){
+                typeError("rvalue appears on the left-side of assignment", 6, Exp->children[1]->line);
+                return NULL;
+            }
+            if(Exp->children[2]->numChildren == 1 && strcmp(Exp->children[2]->children[0]->type, "ID") != 0){
+                right = (Type*)malloc(sizeof(Type));
+                right->category = PRIMITIVE;
+                char* typeName = Exp->children[2]->children[0]->type;
+                if(strcmp(typeName, "INT") == 0){
+                    right->primitive = INT;
+                }else if(strcmp(typeName, "FLOAT") == 0){
+                    right->primitive = FLOAT;
+                }else if(strcmp(typeName, "CHAR") == 0){
+                    right->primitive = CHAR;
+                }
+                right->init = 1;
+            }
+            if(left == NULL || right == NULL){
+                typeError("unmatching type on both sides of assignment", 5, Exp->children[1]->line);
+                return NULL;
+            }
             if(left->category == PRIMITIVE && right->category == PRIMITIVE){
                 if(left->primitive != right->primitive){
                     typeError("unmatching type on both sides of assignment", 5, Exp->children[1]->line);
+                }else if(right->init == 0){
+                    typeError("assignment of non-nunmber varibles", 5, Exp->line);
+                }else{
+                    left->init = 1;
+                    return left;
                 }
             }else{
                 typeError("unmatching type on both sides of assignment", 5, Exp->children[1]->line);
             }
         }else if(strcmp(Exp->children[1]->type, "PLUS") == 0 || strcmp(Exp->children[1]->type, "MINUS") == 0 || strcmp(Exp->children[1]->type, "MUL") == 0 || strcmp(Exp->children[1]->type, "DIV") == 0){
+            if(Exp->children[0]->numChildren == 1 && strcmp(Exp->children[0]->children[0]->type, "ID") != 0){
+                left = (Type*)malloc(sizeof(Type));
+                left->category = PRIMITIVE;
+                char* typeName = Exp->children[2]->children[0]->type;
+                if(strcmp(typeName, "INT") == 0){
+                    left->primitive = INT;
+                }else if(strcmp(typeName, "FLOAT") == 0){
+                    left->primitive = FLOAT;
+                }else if(strcmp(typeName, "CHAR") == 0){
+                    left->primitive = CHAR;
+                }
+                left->init = 1;
+            }
+            if(Exp->children[2]->numChildren == 1 && strcmp(Exp->children[2]->children[0]->type, "ID") != 0){
+                right = (Type*)malloc(sizeof(Type));
+                right->category = PRIMITIVE;
+                char* typeName = Exp->children[2]->children[0]->type;
+                if(strcmp(typeName, "INT") == 0){
+                    right->primitive = INT;
+                }else if(strcmp(typeName, "FLOAT") == 0){
+                    right->primitive = FLOAT;
+                }else if(strcmp(typeName, "CHAR") == 0){
+                    right->primitive = CHAR;
+                }
+                right->init = 1;
+            }
+            if(left == NULL || right == NULL){
+                typeError("unmatching operand", 7, Exp->children[1]->line);
+                return NULL;
+            }
             if(left->category == PRIMITIVE && right->category == PRIMITIVE){
                 int wrong = 0;
                 if(left->primitive != right->primitive){
@@ -523,7 +589,7 @@ Type* checkExp(TreeNode* Exp){
                     typeError("unmatching operand", 7, Exp->children[1]->line);
                 }
                 if(left->init == 0 || right->init == 0){
-                    wrong = 0;
+                    wrong = 1;
                     typeError("binary operation on non-nunmber varibles", 7, Exp->line);                
                 }
                 if(wrong == 0){
@@ -533,12 +599,47 @@ Type* checkExp(TreeNode* Exp){
                 typeError("unmatching operand", 7, Exp->children[1]->line);
             }
         }else if(strcmp(Exp->children[1]->type, "AND") == 0 || strcmp(Exp->children[1]->type, "OR") == 0){
+            if(Exp->children[0]->numChildren == 1 && strcmp(Exp->children[0]->children[0]->type, "ID") != 0){
+                left = (Type*)malloc(sizeof(Type));
+                left->category = PRIMITIVE;
+                char* typeName = Exp->children[2]->children[0]->type;
+                if(strcmp(typeName, "INT") == 0){
+                    left->primitive = INT;
+                }else if(strcmp(typeName, "FLOAT") == 0){
+                    left->primitive = FLOAT;
+                }else if(strcmp(typeName, "CHAR") == 0){
+                    left->primitive = CHAR;
+                }
+                left->init = 1;
+            }
+            if(Exp->children[2]->numChildren == 1 && strcmp(Exp->children[2]->children[0]->type, "ID") != 0){
+                right = (Type*)malloc(sizeof(Type));
+                right->category = PRIMITIVE;
+                char* typeName = Exp->children[2]->children[0]->type;
+                if(strcmp(typeName, "INT") == 0){
+                    right->primitive = INT;
+                }else if(strcmp(typeName, "FLOAT") == 0){
+                    right->primitive = FLOAT;
+                }else if(strcmp(typeName, "CHAR") == 0){
+                    right->primitive = CHAR;
+                }
+                right->init = 1;
+            }
+            if(left == NULL || right == NULL){
+                typeError("unmatching operand", 7, Exp->children[1]->line);
+                return NULL;
+            }
             if(left->category == PRIMITIVE && right->category == PRIMITIVE && left->primitive == INT && right->primitive == INT){
                 if(left->primitive != right->primitive){
                     typeError("unmatching operand", 5, Exp->children[1]->line);
                 }
             }else{
                 typeError("unmatching operand", 5, Exp->children[1]->line);
+            }
+        }else if(strcmp(Exp->children[1]->type, "DOT")){
+            if(strcmp(Exp->children[2]->type, "ID")){
+                Type* type = getType(typeTable, Exp->children[2]->value);
+                return type;
             }
         }
     }else if(Exp->numChildren == 2){
@@ -681,14 +782,14 @@ void processStruct(TreeNode* structSpecifier, Type* type){
             curNode = curNode->next;
         }
         //struct本身
-        int wrong = insertIntoTypeTable(typeTable, structSpecifier->children[1]->value, type);
+        /* int wrong = insertIntoTypeTable(typeTable, structSpecifier->children[1]->value, type);
         if(wrong == 1){
             char errorMsg[50];
             strcpy(errorMsg, "variable \"");
             strcpy(errorMsg + 10, structSpecifier->children[1]->value);
             strcpy(errorMsg + 10 + strlen(structSpecifier->children[1]->value), "\" is redefined in the same scope");
             typeError(errorMsg, 3,structSpecifier->children[1]->line);
-        }
+        } */
         freeList(defList);
     }else{
         strcpy(type->name, structSpecifier->children[1]->value);
