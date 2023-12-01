@@ -22,6 +22,9 @@
     void processStruct(TreeNode* structSpecifier, Type* type);
     void freeTree(TreeNode* node);
     Type* checkExp(TreeNode* Exp);
+    int checkType(Type* left, Type* right);
+    Type* getIndexType(TreeNode* Exp);
+    void findNodeExcept(TreeNode* node, ListNode** list, char* type, char* except);
 
 %}
 %union {
@@ -57,7 +60,7 @@ Program : ExtDefList {
         //检查未定义变量
         ListNode** defList = (ListNode**)malloc(sizeof(ListNode*));
         *defList = NULL;
-        findNode($1, defList, "Def");
+        findNodeExcept($1, defList, "Def");
         ListNode* curDef = *defList;
         while(curDef != NULL){
             ListNode** decList = (ListNode**)malloc(sizeof(ListNode*));
@@ -118,7 +121,13 @@ Program : ExtDefList {
         //检查运算变量是否合法
         curStmt = *stmtList;
         while(curStmt != NULL){
-            checkExp(curStmt->node->children[0]);
+            if(curStmt->node->numChildren == 2){
+                TreeNode* exp = curStmt->node->children[0];
+                checkExp(exp);
+            }else if(curStmt->node->numChildren == 3){
+                TreeNode* exp = curStmt->node->children[1];
+                checkExp(exp);
+            }
             curStmt = curStmt->next;
         }
         free(stmtList);
@@ -169,16 +178,7 @@ ExtDef : Specifier ExtDecList SEMI {
             }
         }else{
             //数组
-            name = varDec->children[2]->value;
-            strcpy(type->name, name);
-            type->category = ARRAY;
-            curLine = varDec->children[2]->line;
-            type->array = (Array*)malloc(sizeof(Array));
-            Type* base = (Type*)malloc(sizeof(Type));
-            int size = atoi(varDec->children[2]->value);
-            processArray(varDec, base, $1);
-            type->array->base = base;
-            type->array->size = size;
+            processArray(varDec, type, $1);
         }
         int wrong = insertIntoTypeTable(typeTable, name, type);
         if(wrong == 1){
@@ -292,7 +292,6 @@ StmtList : Stmt StmtList {
 ;
 Stmt : Exp SEMI {
     $$ = createNode("Stmt", "", $1->line, 2, $1, createNode("SEMI", "", $2, 0));
-    //两边都使用变量，检查是否定义
 }
 | CompSt {
     $$ = createNode("Stmt", "", $1->line, 1, $1);
@@ -380,6 +379,10 @@ Def : Specifier DecList SEMI {
                 strcpy(errorMsg + 10 + strlen(name), "\" is redefined in the same scope");
                 typeError(errorMsg, 3, id->line);
             }
+        }else{
+            //数组
+            Type* type = (Type*)malloc(sizeof(Type));
+            processArray(varDec, type, specifier);
         }
         curDec = curDec->next;
     }
@@ -539,17 +542,11 @@ Type* checkExp(TreeNode* Exp){
                 typeError("unmatching type on both sides of assignment", 5, Exp->children[1]->line);
                 return NULL;
             }
-            if(left->category == PRIMITIVE && right->category == PRIMITIVE){
-                if(left->primitive != right->primitive){
-                    typeError("unmatching type on both sides of assignment", 5, Exp->children[1]->line);
-                }else if(right->init == 0){
-                    typeError("assignment of non-nunmber varibles", 5, Exp->line);
-                }else{
-                    left->init = 1;
-                    return left;
-                }
-            }else{
+            if(checkType(left, right) == 1){
                 typeError("unmatching type on both sides of assignment", 5, Exp->children[1]->line);
+            }else{
+                left->init = 1;
+                return left;
             }
         }else if(strcmp(Exp->children[1]->type, "PLUS") == 0 || strcmp(Exp->children[1]->type, "MINUS") == 0 || strcmp(Exp->children[1]->type, "MUL") == 0 || strcmp(Exp->children[1]->type, "DIV") == 0){
             if(Exp->children[0]->numChildren == 1 && strcmp(Exp->children[0]->children[0]->type, "ID") != 0){
@@ -660,6 +657,42 @@ Type* checkExp(TreeNode* Exp){
             Type* type = checkExp(Exp->children[0]);
             return type;
         }
+    }else if(Exp->numChildren == 4){
+        if(strcmp(Exp->children[1]->type, "LB") == 0){
+            Type* type = checkExp(Exp->children[0]);
+            TreeNode* index = Exp->children[2];
+            Type* indexType = getIndexType(index);
+            if(indexType == NULL || indexType->category != PRIMITIVE || indexType->primitive != INT){
+                typeError("indexing by non-integer", 12, Exp->children[1]->line);
+            }else if(type->category == ARRAY){
+                return type->array->base;
+            }else{
+                typeError("indexing on non-array variable", 10, Exp->children[1]->line);
+            }
+        }
+    }
+    return NULL;
+}
+
+Type* getIndexType(TreeNode* Exp){
+    if(Exp->numChildren == 1){
+        if(strcmp(Exp->children[0]->type, "ID") == 0){
+            char* name = Exp->children[0]->value;
+            Type* type = getType(typeTable, name);
+            return type;
+        }else if(strcmp(Exp->children[0]->type, "INT") == 0 || strcmp(Exp->children[0]->type, "FLOAT") == 0 || strcmp(Exp->children[0]->type, "CHAR") == 0){
+            Type* type = (Type*)malloc(sizeof(Type));
+            type->category = PRIMITIVE;
+            type->primitive = INT;
+            return type;
+        }
+    }else if(Exp->numChildren == 4){
+        Type* type = getIndexType(Exp->children[0]);
+        Type* indexType = getIndexType(Exp->children[2]);
+        if(indexType == NULL || indexType->category != PRIMITIVE || indexType->primitive != INT){
+            return NULL;
+        }
+        return type->array->base;
     }
     return NULL;
 }
@@ -704,15 +737,6 @@ void processStruct(TreeNode* structSpecifier, Type* type){
                         curField->type = subType;
                         curField->next = (FieldList*)malloc(sizeof(FieldList));
                         curField = curField->next;
-                        //struct内部变量
-                        /* int wrong = insertIntoTypeTable(typeTable, name, subType);
-                        if(wrong == 1){
-                            char errorMsg[50];
-                            strcpy(errorMsg, "variable \"");
-                            strcpy(errorMsg + 10, name);
-                            strcpy(errorMsg + 10 + strlen(name), "\" is redefined in the same scope");
-                            typeError(errorMsg, 3, id->line);
-                        } */
                     }else{
                         //数组
                         ListNode** idList = (ListNode**)malloc(sizeof(ListNode*));
@@ -740,14 +764,6 @@ void processStruct(TreeNode* structSpecifier, Type* type){
                         }
                         subType->array->base = base;
                         subType->array->size = size;
-                        /* int wrong = insertIntoTypeTable(typeTable, name, subType);
-                        if(wrong == 1){
-                            char errorMsg[50];
-                            strcpy(errorMsg, "variable \"");
-                            strcpy(errorMsg + 10, name);
-                            strcpy(errorMsg + 10 + strlen(name), "\" is redefined in the same scope");
-                            typeError(errorMsg, 3, id->line);
-                        } */
                         freeList(idList);
                     }
                     curVar = curVar->next;
@@ -767,29 +783,12 @@ void processStruct(TreeNode* structSpecifier, Type* type){
                         TreeNode* id = curVar->node->children[0];
                         name = id->value;
                     }
-                    /* int wrong = insertIntoTypeTable(typeTable, name, subType);
-                    if(wrong == 1){
-                        char errorMsg[50];
-                        strcpy(errorMsg, "variable \"");
-                        strcpy(errorMsg + 10, name);
-                        strcpy(errorMsg + 10 + strlen(name), "\" is redefined in the same scope");
-                        typeError(errorMsg, 3,curVar->node->children[0]->line);
-                    } */
                     curVar = curVar->next;
                 }
                 freeList(varDecList);
             }
             curNode = curNode->next;
         }
-        //struct本身
-        /* int wrong = insertIntoTypeTable(typeTable, structSpecifier->children[1]->value, type);
-        if(wrong == 1){
-            char errorMsg[50];
-            strcpy(errorMsg, "variable \"");
-            strcpy(errorMsg + 10, structSpecifier->children[1]->value);
-            strcpy(errorMsg + 10 + strlen(structSpecifier->children[1]->value), "\" is redefined in the same scope");
-            typeError(errorMsg, 3,structSpecifier->children[1]->line);
-        } */
         freeList(defList);
     }else{
         strcpy(type->name, structSpecifier->children[1]->value);
@@ -799,34 +798,61 @@ void processStruct(TreeNode* structSpecifier, Type* type){
 }
 
 void processArray(TreeNode* varDec, Type* type, TreeNode* specifier){
-    ListNode** idList = (ListNode**)malloc(sizeof(ListNode*));
-    *idList = NULL;
-    findNode(varDec, idList, "ID");
-    TreeNode* id = (*idList)->node;
-    char* name;
-    name = id->value;
-    strcpy(type->name, name);
     type->category = ARRAY;
     type->array = (Array*)malloc(sizeof(Array));
-    Type* base = (Type*)malloc(sizeof(Type));
-    int size = atoi(varDec->children[2]->value);
-    if(strcmp(varDec->children[0]->children[0]->type, "ID") == 0){
-        base->category = PRIMITIVE;
-        //默认不为struct数组
+    type->array->base = (Type*)malloc(sizeof(Type));
+    type->array->size = atoi(varDec->children[2]->value);
+    Type* curType = type->array->base;
+    varDec = varDec->children[0];
+    while(varDec->numChildren != 1){
+        curType->category = ARRAY;
+        curType->array = (Array*)malloc(sizeof(Array));
+        curType->array->base = (Type*)malloc(sizeof(Type));
+        type->array->size = atoi(varDec->children[2]->value);
+        curType = curType->array->base;
+        varDec = varDec->children[0];
+    }
+    char* name = varDec->children[0]->value;
+    if(strcmp(specifier->children[0]->type, "TYPE") == 0){
+        curType->category = PRIMITIVE;
         char* typeName = specifier->children[0]->value;
         if(strcmp(typeName, "int") == 0){
-            base->primitive = INT;
+            curType->primitive = INT;
         }else if(strcmp(typeName, "float") == 0){
-            base->primitive = FLOAT;
+            curType->primitive = FLOAT;
         }else if(strcmp(typeName, "char") == 0){
-            base->primitive = CHAR;
+            curType->primitive = CHAR;
+        }
+    }
+    strcpy(type->name, name);
+    int wrong = insertIntoTypeTable(typeTable, name, type);
+    if(wrong == 1){
+        char errorMsg[50];
+        strcpy(errorMsg, "variable \"");
+        strcpy(errorMsg + 10, name);
+        strcpy(errorMsg + 10 + strlen(name), "\" is redefined in the same scope");
+        typeError(errorMsg, 3, varDec->children[2]->line);
+    }
+}
+
+int checkType(Type* type1, Type* type2){
+    if(type1->category == ARRAY && type2->category == ARRAY){
+        return checkType(type1->array->base, type2->array->base);
+    }else if(type1->category == PRIMITIVE && type2->category == PRIMITIVE){
+        if(type1->primitive != type2->primitive){
+            return 1;
+        }else{
+            return 0;
+        }
+    }else if(type1->category == STRUCTURE && type2->category == STRUCTURE){
+        if(strcmp(type1->name, type2->name) != 0){
+            return 1;
+        }else{
+            return 0;
         }
     }else{
-        processArray(varDec->children[0], base, specifier);
+        return 1;
     }
-    type->array->base = base;
-    type->array->size = size;
-    freeList(idList);
 }
 
 void findNode(TreeNode* node, ListNode** list, char* type){
@@ -834,6 +860,17 @@ void findNode(TreeNode* node, ListNode** list, char* type){
     if(strcmp(node->type, type) == 0) {
         insertListNode(list, node);
     }
+    for(int i = 0; i < node->numChildren; i++) {
+        findNode(node->children[i], list, type);
+    }
+}
+
+void findNodeExcept(TreeNode* node, ListNode** list, char* type, char* except){
+    if(node == NULL) return;
+    if(strcmp(node->type, type) == 0) {
+        insertListNode(list, node);
+    }
+    if(strcmp(node->type, except) == 0) return;
     for(int i = 0; i < node->numChildren; i++) {
         findNode(node->children[i], list, type);
     }
