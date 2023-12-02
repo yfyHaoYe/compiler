@@ -75,12 +75,12 @@ ExtDef : Specifier ExtDecList SEMI {
     TreeNode* cur = $2;
     ListNode** decList = (ListNode**)malloc(sizeof(ListNode*));
     *decList = NULL;
-    findNode(cur, decList, "Dec");
+    findNode(cur, decList, "VarDec");
     ListNode* curDec = *decList;
     char* name;
     int curLine;
     while(curDec != NULL){
-        TreeNode* varDec = curDec->node->children[0];
+        TreeNode* varDec = curDec->node;
         Type* type = (Type*)malloc(sizeof(Type));
         if(curDec->node->numChildren == 3){
             type->init = 1;
@@ -104,14 +104,6 @@ ExtDef : Specifier ExtDecList SEMI {
         }else{
             //数组
             processArray(varDec, type, $1);
-            /* int wrong = insertIntoTypeTable(typeTable, type->name, type);
-            if(wrong == 1){
-                char errorMsg[50];
-                strcpy(errorMsg, "variable \"");
-                strcpy(errorMsg + 10, type->name);
-                strcpy(errorMsg + 10 + strlen(type->name), "\" is redefined in the same scope");
-                typeError(errorMsg, 3, varDec->children[2]->line);
-            } */
         }
         int wrong = insertIntoTypeTable(typeTable, name, type);
         if(wrong == 1){
@@ -286,34 +278,11 @@ ExtDef : Specifier ExtDecList SEMI {
         curDef = curDef->next;
     }
     free(defList);
+    //检查运算变量是否合法
     ListNode** stmtList = (ListNode**)malloc(sizeof(ListNode*));
     *stmtList = NULL;
     findNode(compSt, stmtList, "Stmt");
     ListNode* curStmt = *stmtList;
-    /* while(curStmt != NULL){
-        if(curStmt->node->numChildren == 2){
-            TreeNode* exp = curStmt->node->children[0];
-            ListNode** idList = (ListNode**)malloc(sizeof(ListNode*));
-            *idList = NULL;
-            findNode(exp, idList, "ID");
-            ListNode* curId = *idList;
-            while(curId != NULL){
-                char* name = curId->node->value;
-                int len = strlen(name);
-                if(!(isContains(funcVarTable, name) || isContains(typeTable, name))){
-                    char errorMsg[50];
-                    strcpy(errorMsg, name);
-                    strcpy(errorMsg + len, " is used without a definition");
-                    typeError(errorMsg, 1, curId->node->line);
-                }
-                curId = curId->next;
-            }
-            free(idList);
-        }
-        curStmt = curStmt->next;
-    } */
-    //检查运算变量是否合法
-    curStmt = *stmtList;
     while(curStmt != NULL){
         if(curStmt->node->numChildren == 2){
             TreeNode* exp = curStmt->node->children[0];
@@ -738,11 +707,15 @@ Type* checkExp(TreeNode* Exp, TypeTable* subTable){
         if(strcmp(Exp->children[0]->type, "ID") == 0){
             char* name = Exp->children[0]->value;
             Type* type;
-            if(isContains(subTable, name)) type = getType(subTable, name);
-            else if(isContains(typeTable, name)) type = getType(typeTable, name);
-            else{
+            if(isContains(subTable, name)) {
+                type = getType(subTable, name);
+            }
+            else if(isContains(typeTable, name)){
+                type = getType(typeTable, name);  
+            }else{
                 char errorMsg[50];
                 strcpy(errorMsg, name);
+                //错误
                 strcpy(errorMsg + strlen(name), " is used without a definition");
                 typeError(errorMsg, 1, Exp->children[0]->line);
             }
