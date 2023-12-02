@@ -1,12 +1,12 @@
 %{
-    #include "tree_node.h"
-    #include "type_table.h"
-    #include "linked_list.h"
+    #include "script/tree_node.h"
+    #include "script/type_table.h"
+    #include "script/linked_list.h"
     #include <stdlib.h>
     #include "lex.yy.c"
     #include <stdio.h>
     #include <string.h>
-    #include "lex_interface.h"
+    #include "script/lex_interface.h"
     #include <stdbool.h>
     char* convertToDec(char*);
     int typeError(const char *msg, int type, int line);
@@ -24,7 +24,8 @@
     Type* checkExp(TreeNode* Exp, TypeTable* subTable);
     Type* getIndexType(TreeNode* Exp, TypeTable* subTable);
     void findNodeExcept(TreeNode* node, ListNode** list, char* type, char* except);
-
+    void checkFunc(char* name, int line);
+    void checkFuncVar(char* name, int line, ListNode* argList);
 %}
 %union {
     struct {
@@ -497,7 +498,9 @@ Exp : Exp ASSIGN Exp {
     $$ = createNode("Exp", "", $1, 2, createNode("NOT", "", $1, 0), $2);
 }
 | ID LP RP {
+    printf("bug is in here");
     $$ = createNode("Exp", "", $1.line, 3, createNode("ID", $1.string, $1.line, 0), createNode("LP", "", $1.line, 0), createNode("RP", "", $1.line, 0));
+    checkFunc($1.string, $1.line);
 }
 | Exp LB Exp RB {
     $$ = createNode("Exp", "", $1->line, 4, $1, createNode("LB", "", $2, 0), $3, createNode("RB", "", $4, 0));
@@ -522,6 +525,11 @@ Exp : Exp ASSIGN Exp {
 }
 | ID LP Args RP {
     $$ = createNode("Exp", "", $1.line, 4, createNode("ID", $1.string, $1.line, 0), createNode("LP", "", $2, 0), $3, createNode("RP", "", $2, 0));
+    ListNode** argList = (ListNode**)malloc(sizeof(ListNode*));
+    *argList = NULL;
+    findNode($3, argList, "Exp");
+    ListNode* args = *argList;
+    checkFuncVar($1.string, $1.line, args);
 }
 | ID LP Args error {
     yyerror(" Missing closing parenthesis ')'");
@@ -554,6 +562,45 @@ $$.line = $1.line;}
 $$.line = $1.line;}
 ;
 %%
+
+void checkFunc(char* name, int line){
+    Type* funcType = getType(typeTable, name);
+    if (funcType == NULL || funcType -> category != FUNCTION){
+        printf("this is not a function!");
+        return;
+    }
+    if (funcType -> function -> varList != NULL){
+        // error2
+        printf("this is not a function!");
+        // return;
+    }
+    return;
+}
+
+void checkFuncVar(char* name, int line, ListNode* argList){
+    Type* funcType = getType(typeTable, name);
+    if (funcType == NULL||funcType -> category != FUNCTION){
+        printf("this is not a function!");
+        return;
+    }
+    if (funcType -> function -> varList == NULL){
+        // error2
+        printf("this is not a function!");
+        return;
+    }
+    
+    FieldList* varList = funcType -> function -> varList;
+
+    int varNum = 0;
+    int argNum = 0;
+    ListNode* curArg = argList;
+    FieldList* curVar = varList;
+
+    while(curVar != NULL){
+        varNum++;
+        curVar = curVar -> next;
+    }
+}
 Type* checkExp(TreeNode* Exp, TypeTable* subTable){
     if(Exp->numChildren == 3){
         Type* left = checkExp(Exp->children[0], subTable);
@@ -715,7 +762,6 @@ Type* checkExp(TreeNode* Exp, TypeTable* subTable){
             }else{
                 char errorMsg[50];
                 strcpy(errorMsg, name);
-                //错误
                 strcpy(errorMsg + strlen(name), " is used without a definition");
                 typeError(errorMsg, 1, Exp->children[0]->line);
             }

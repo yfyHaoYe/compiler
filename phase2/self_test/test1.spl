@@ -1,0 +1,9 @@
+//scope
+int a;
+int test_2_r13()
+{
+  float a;
+  int b;
+  a = b;
+  return 0;
+}
