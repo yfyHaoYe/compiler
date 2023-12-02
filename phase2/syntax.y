@@ -1,12 +1,12 @@
 %{
-    #include "tree_node.h"
-    #include "type_table.h"
-    #include "linked_list.h"
+    #include "script/tree_node.h"
+    #include "script/type_table.h"
+    #include "script/linked_list.h"
     #include <stdlib.h>
     #include "lex.yy.c"
     #include <stdio.h>
     #include <string.h>
-    #include "lex_interface.h"
+    #include "script/lex_interface.h"
     #include <stdbool.h>
     char* convertToDec(char*);
     int typeError(const char *msg, int type, int line);
