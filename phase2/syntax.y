@@ -104,6 +104,14 @@ ExtDef : Specifier ExtDecList SEMI {
         }else{
             //数组
             processArray(varDec, type, $1);
+            int wrong = insertIntoTypeTable(typeTable, type->name, type);
+            if(wrong == 1){
+                char errorMsg[50];
+                strcpy(errorMsg, "variable \"");
+                strcpy(errorMsg + 10, type->name);
+                strcpy(errorMsg + 10 + strlen(type->name), "\" is redefined in the same scope");
+                typeError(errorMsg, 3, varDec->children[2]->line);
+            }
         }
         int wrong = insertIntoTypeTable(typeTable, name, type);
         if(wrong == 1){
@@ -122,8 +130,8 @@ ExtDef : Specifier ExtDecList SEMI {
     //add struct type to type table
     TreeNode* structSpecifier = $1->children[0];
     Type* type = processStruct(structSpecifier);
-    char* name = structSpecifier->children[1]->value;
-    int wrong = insertIntoTypeTable(typeTable, structSpecifier->children[1]->value, type);
+    char* name = type->name;
+    int wrong = insertIntoTypeTable(typeTable, name, type);
     if(wrong == 1){
         char errorMsg[50];
         strcpy(errorMsg, "variable \"");
@@ -229,6 +237,14 @@ ExtDef : Specifier ExtDecList SEMI {
                 //数组
                 Type* type = (Type*)malloc(sizeof(Type));
                 processArray(varDec, type, specifier);
+                int wrong = insertIntoTypeTable(typeTable, type->name, type);
+                if(wrong == 1){
+                    char errorMsg[50];
+                    strcpy(errorMsg, "variable \"");
+                    strcpy(errorMsg + 10, type->name);
+                    strcpy(errorMsg + 10 + strlen(type->name), "\" is redefined in the same scope");
+                    typeError(errorMsg, 3, varDec->children[2]->line);
+                }
             }
             curDec = curDec->next;
         }
@@ -752,8 +768,9 @@ Type* getIndexType(TreeNode* Exp){
 
 Type* processStruct(TreeNode* structSpecifier){
     Type* type = (Type*)malloc(sizeof(Type));
+    TypeTable* innerTable = (TypeTable*)malloc(sizeof(TypeTable));
     if(structSpecifier->numChildren == 5){
-        //同时使用struct ID和别名ID,Type类型中存真名，table中存进别名
+        //完整定义
         strcpy(type->name, structSpecifier->children[1]->value);
         type->category = STRUCTURE;
         type->structure = (FieldList*)malloc(sizeof(FieldList));
@@ -787,38 +804,32 @@ Type* processStruct(TreeNode* structSpecifier){
                             subType->primitive = CHAR;
                         }
                         strcpy(subType->name, name);
+                        int wrong = insertIntoTypeTable(innerTable, name, subType);
+                        if(wrong == 1){
+                            char errorMsg[50];
+                            strcpy(errorMsg, "variable \"");
+                            strcpy(errorMsg + 10, name);
+                            strcpy(errorMsg + 10 + strlen(name), "\" is redefined in the same scope");
+                            typeError(errorMsg, 3, id->line);
+                        }
                         strcpy(curField->name, name);
                         curField->type = subType;
                         curField->next = (FieldList*)malloc(sizeof(FieldList));
                         curField = curField->next;
                     }else{
                         //数组
-                        ListNode** idList = (ListNode**)malloc(sizeof(ListNode*));
-                        *idList = NULL;
-                        findNode(curVar->node, idList, "ID");
-                        TreeNode* id = (*idList)->node;
-                        strcpy(name, id->value);
-                        strcpy(subType->name, name);
-                        subType->category = ARRAY;
-                        subType->array = (Array*)malloc(sizeof(Array));
-                        Type* base = (Type*)malloc(sizeof(Type));
-                        int size = atoi(curVar->node->children[2]->value);
-                        if(strcmp(curVar->node->children[0]->children[0]->type, "ID") == 0){
-                            base->category = PRIMITIVE;
-                            char* typeName = specifier->children[0]->value;
-                            if(strcmp(typeName, "int") == 0){
-                                base->primitive = INT;
-                            }else if(strcmp(typeName, "float") == 0){
-                                base->primitive = FLOAT;
-                            }else if(strcmp(typeName, "char") == 0){
-                                base->primitive = CHAR;
-                            }
-                        }else{
-                            processArray(curVar->node->children[0], base, specifier);
+                        processArray(curVar->node, subType, specifier);
+                        int wrong = insertIntoTypeTable(innerTable, subType->name, subType);
+                        if(wrong == 1){
+                            char errorMsg[50];
+                            strcpy(errorMsg, "variable \"");
+                            strcpy(errorMsg + 10, name);
+                            strcpy(errorMsg + 10 + strlen(name), "\" is redefined in the same scope");
+                            typeError(errorMsg, 3, curVar->node->children[2]->line);
                         }
-                        subType->array->base = base;
-                        subType->array->size = size;
-                        freeList(idList);
+                        curField->type = subType;
+                        curField->next = (FieldList*)malloc(sizeof(FieldList));
+                        curField = curField->next;
                     }
                     curVar = curVar->next;
                 }
@@ -828,6 +839,7 @@ Type* processStruct(TreeNode* structSpecifier){
         }
         freeList(defList);
     }else{
+        //只有定义无声明
         strcpy(type->name, structSpecifier->children[1]->value);
         type->category = STRUCTURE;
         type-> structure = NULL;
@@ -863,14 +875,6 @@ void processArray(TreeNode* varDec, Type* type, TreeNode* specifier){
         }
     }
     strcpy(type->name, name);
-    int wrong = insertIntoTypeTable(typeTable, name, type);
-    if(wrong == 1){
-        char errorMsg[50];
-        strcpy(errorMsg, "variable \"");
-        strcpy(errorMsg + 10, name);
-        strcpy(errorMsg + 10 + strlen(name), "\" is redefined in the same scope");
-        typeError(errorMsg, 3, varDec->children[2]->line);
-    }
 }
 
 void findNode(TreeNode* node, ListNode** list, char* type){
