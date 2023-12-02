@@ -8,11 +8,12 @@
 typedef struct Type {
     char name[32];
     int init;
-    enum {PRIMITIVE, ARRAY, STRUCTURE} category;
+    enum {PRIMITIVE, ARRAY, STRUCTURE, FUNCTION} category;
     union{
         enum {INT, FLOAT, CHAR} primitive;
         struct Array *array;
         struct FieldList *structure;
+        struct Function *function;
     };
 }Type;
 
@@ -33,8 +34,13 @@ typedef struct HashNode {
     struct HashNode* next;
 } HashNode;
 
+typedef struct Function{
+    char* name;
+    Type* returnType;
+    struct FieldList* varList;
+} Function;
 
-typedef struct {
+typedef struct TypeTable{
     HashNode* buckets[TABLE_SIZE];
     int isFilled[TABLE_SIZE];
 } TypeTable;

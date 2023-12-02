@@ -24,7 +24,8 @@
     Type* checkExp(TreeNode* Exp);
     Type* getIndexType(TreeNode* Exp);
     void findNodeExcept(TreeNode* node, ListNode** list, char* type, char* except);
-
+    void checkFunc(char* name, int line);
+    void checkFuncVar(char* name, int line, ListNode* argList);
 %}
 %union {
     struct {
@@ -55,7 +56,7 @@ Program : ExtDefList {
         exit(1);
     }
     if(!error){
-        //printParseTree($$, 0);
+        // printParseTree($$, 0);
         freeTree($$);
     }
 }
@@ -69,6 +70,7 @@ ExtDefList : ExtDef ExtDefList {
 }
 ;
 ExtDef : Specifier ExtDecList SEMI {
+
     //静态变量
     $$ = createNode("ExtDef", "", $1->line, 3, $1, $2, createNode("SEMI", "", $3, 0));
     //add primitive type to type table
@@ -134,9 +136,14 @@ ExtDef : Specifier ExtDecList SEMI {
 }
 | Specifier FunDec CompSt {
     $$ = createNode("ExtDef", "", $1->line, 3, $1, $2, $3);
+    
+
     TypeTable* funcVarTable = (TypeTable*)malloc(sizeof(TypeTable));
     //函数定义,函数参数定义FunDec
     TreeNode* funDec = $2;
+    FieldList* varList = NULL;
+    FieldList* curVar = NULL;
+
     ListNode** paramDecList = (ListNode**)malloc(sizeof(ListNode*));
     *paramDecList = NULL;
     findNode(funDec, paramDecList, "ParamDec");
@@ -144,6 +151,7 @@ ExtDef : Specifier ExtDecList SEMI {
     while(curParamDec != NULL){
         TreeNode* specifier = curParamDec->node->children[0];
         char* name = curParamDec->node->children[1]->children[0]->value;
+        int wrong = 0; 
         if(strcmp(specifier->children[0]->type, "TYPE") == 0){
             Type* type = (Type*)malloc(sizeof(Type));
             type->category = PRIMITIVE;
@@ -156,24 +164,28 @@ ExtDef : Specifier ExtDecList SEMI {
             }else if(strcmp(typeName, "char") == 0){
                 type->primitive = CHAR;
             }
-            int wrong = insertIntoTypeTable(funcVarTable, name, type);
+            wrong = insertIntoTypeTable(funcVarTable, name, type);
             if(wrong == 1){
                 char errorMsg[50];
                 strcpy(errorMsg, "variable \"");
                 strcpy(errorMsg + 10, name);
                 strcpy(errorMsg + 10 + strlen(name), "\" is redefined in the same scope");
                 typeError(errorMsg, 3, curParamDec->node->children[1]->children[0]->line);
+            } else {
+                curVar = (FieldList*)malloc(sizeof(FieldList))
+                curVar -> name = curParamDec
             }
         }else{
             Type* type = getType(typeTable, specifier->children[0]->children[1]->value);
             if(type == NULL) {
+                wrong = 1;
                 char errorMsg[50];
                 strcpy(errorMsg, "variable \"");
                 strcpy(errorMsg + 10, name);
                 strcpy(errorMsg + 10 + strlen(name), "\" is used without a definition");
                 typeError(errorMsg, 1, curParamDec->node->children[1]->children[0]->line);
             }else{
-                int wrong = insertIntoTypeTable(funcVarTable, name, type);
+                wrong = insertIntoTypeTable(funcVarTable, name, type);
                 if(wrong == 1){
                     char errorMsg[50];
                     strcpy(errorMsg, "variable \"");
@@ -182,6 +194,11 @@ ExtDef : Specifier ExtDecList SEMI {
                     typeError(errorMsg, 3, curParamDec->node->children[1]->children[0]->line);
                 }
             }
+        }
+        if (wrong == 0){
+            curVar = (FieldList*)malloc(sizeof(FieldList))
+            curVar -> name = curParamDec->node->children[]
+            curVar ->
         }
         curParamDec = curParamDec->next;
     }
@@ -511,7 +528,9 @@ Exp : Exp ASSIGN Exp {
     $$ = createNode("Exp", "", $1, 2, createNode("NOT", "", $1, 0), $2);
 }
 | ID LP RP {
+    printf("bug is in here");
     $$ = createNode("Exp", "", $1.line, 3, createNode("ID", $1.string, $1.line, 0), createNode("LP", "", $1.line, 0), createNode("RP", "", $1.line, 0));
+    checkFunc($1.string, $1.line);
 }
 | Exp LB Exp RB {
     $$ = createNode("Exp", "", $1->line, 4, $1, createNode("LB", "", $2, 0), $3, createNode("RB", "", $4, 0));
@@ -536,6 +555,11 @@ Exp : Exp ASSIGN Exp {
 }
 | ID LP Args RP {
     $$ = createNode("Exp", "", $1.line, 4, createNode("ID", $1.string, $1.line, 0), createNode("LP", "", $2, 0), $3, createNode("RP", "", $2, 0));
+    ListNode** argList = (ListNode**)malloc(sizeof(ListNode*));
+    *argList = NULL;
+    findNode($3, argList, "Exp");
+    ListNode* args = *argList;
+    checkFuncVar($1.string, $1.line, args);
 }
 | ID LP Args error {
     yyerror(" Missing closing parenthesis ')'");
@@ -568,6 +592,77 @@ $$.line = $1.line;}
 $$.line = $1.line;}
 ;
 %%
+void checkFunc(char* name, int line){
+    Type* funcType = getType(typeTable, name);
+    if (funcType == NULL || funcType -> category != FUNCTION){
+        printf("this is not a function!");
+        return;
+    }
+    if (funcType -> function -> varList != NULL){
+        // error2
+        printf("this is not a function!");
+        // return;
+    }
+    return;
+}
+
+void checkFuncVar(char* name, int line, ListNode* argList){
+    Type* funcType = getType(typeTable, name);
+    if (funcType == NULL||funcType -> category != FUNCTION){
+        printf("this is not a function!");
+        return;
+    }
+    if (funcType -> function -> varList == NULL){
+        // error2
+        printf("this is not a function!");
+        return;
+    }
+    
+    FieldList* varList = funcType -> function -> varList;
+
+    int varNum = 0;
+    int argNum = 0;
+    ListNode* curArg = argList;
+    FieldList* curVar = varList;
+
+    while(curVar != NULL){
+        varNum++;
+        curVar = curVar -> next;
+    }
+
+    while(curArg != NULL){
+        argNum++;
+        curArg = curArg -> next;
+    }
+
+    if (varNum != argNum){
+        // error3
+        printf("this is not a function!");
+        return;
+    }
+
+    curVar = varList;
+    curArg = argList;
+    while(curVar !=NULL){
+        Type* type = (Type*)malloc(sizeof(Type));
+        if (strcmp(curArg -> node -> value, "INT")){
+            if(strcmp(curArg -> node -> value, "int") == 0){
+                type->primitive = INT;
+            }else if(strcmp(curArg -> node -> value, "float") == 0){
+                type->primitive = FLOAT;
+            }else if(strcmp(curArg -> node -> value, "char") == 0){
+                type->primitive = CHAR;
+            }
+        }
+        if (checkType(curVar -> type, type) == 1){
+            // error4
+            printf("this is not a function!");
+        }
+        curVar = curVar -> next;
+        curArg = curArg -> next;
+    }
+}
+
 Type* checkExp(TreeNode* Exp){
     if(Exp->numChildren == 3){
         //Exp ASSIGN Exp
