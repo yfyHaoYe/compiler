@@ -21,8 +21,8 @@
     void processArray(TreeNode* varDec, Type* type, TreeNode* specifier);
     Type* processStruct(TreeNode* structSpecifier);
     void freeTree(TreeNode* node);
-    Type* checkExp(TreeNode* Exp);
-    Type* getIndexType(TreeNode* Exp);
+    Type* checkExp(TreeNode* Exp, TypeTable* subTable);
+    Type* getIndexType(TreeNode* Exp, TypeTable* subTable);
     void findNodeExcept(TreeNode* node, ListNode** list, char* type, char* except);
 
 %}
@@ -104,14 +104,14 @@ ExtDef : Specifier ExtDecList SEMI {
         }else{
             //数组
             processArray(varDec, type, $1);
-            int wrong = insertIntoTypeTable(typeTable, type->name, type);
+            /* int wrong = insertIntoTypeTable(typeTable, type->name, type);
             if(wrong == 1){
                 char errorMsg[50];
                 strcpy(errorMsg, "variable \"");
                 strcpy(errorMsg + 10, type->name);
                 strcpy(errorMsg + 10 + strlen(type->name), "\" is redefined in the same scope");
                 typeError(errorMsg, 3, varDec->children[2]->line);
-            }
+            } */
         }
         int wrong = insertIntoTypeTable(typeTable, name, type);
         if(wrong == 1){
@@ -290,7 +290,7 @@ ExtDef : Specifier ExtDecList SEMI {
     *stmtList = NULL;
     findNode(compSt, stmtList, "Stmt");
     ListNode* curStmt = *stmtList;
-    while(curStmt != NULL){
+    /* while(curStmt != NULL){
         if(curStmt->node->numChildren == 2){
             TreeNode* exp = curStmt->node->children[0];
             ListNode** idList = (ListNode**)malloc(sizeof(ListNode*));
@@ -311,16 +311,17 @@ ExtDef : Specifier ExtDecList SEMI {
             free(idList);
         }
         curStmt = curStmt->next;
-    }
+    } */
     //检查运算变量是否合法
     curStmt = *stmtList;
     while(curStmt != NULL){
         if(curStmt->node->numChildren == 2){
             TreeNode* exp = curStmt->node->children[0];
-            checkExp(exp);
+            checkExp(exp, funcVarTable);
         }else if(curStmt->node->numChildren == 3){
+            //return
             TreeNode* exp = curStmt->node->children[1];
-            checkExp(exp);
+            checkExp(exp, funcVarTable);
         }
         curStmt = curStmt->next;
     }
@@ -584,11 +585,10 @@ $$.line = $1.line;}
 $$.line = $1.line;}
 ;
 %%
-Type* checkExp(TreeNode* Exp){
+Type* checkExp(TreeNode* Exp, TypeTable* subTable){
     if(Exp->numChildren == 3){
-        //Exp ASSIGN Exp
-        Type* left = checkExp(Exp->children[0]);
-        Type* right = checkExp(Exp->children[2]);
+        Type* left = checkExp(Exp->children[0], subTable);
+        Type* right = checkExp(Exp->children[2], subTable);
         if(strcmp(Exp->children[1]->type, "ASSIGN") == 0){
             if(Exp->children[0]->numChildren == 1 && strcmp(Exp->children[2]->children[0]->type, "ID") != 0){
                 typeError("rvalue appears on the left-side of assignment", 6, Exp->children[1]->line);
@@ -599,7 +599,11 @@ Type* checkExp(TreeNode* Exp){
                 right->category = PRIMITIVE;
                 char* typeName = Exp->children[2]->children[0]->type;
                 if(strcmp(typeName, "INT") == 0){
-                    right->primitive = INT;
+                    if(left != NULL && left->category == PRIMITIVE && left->primitive == FLOAT){
+                        right->primitive = FLOAT;
+                    }else{
+                        right->primitive = INT;
+                    }
                 }else if(strcmp(typeName, "FLOAT") == 0){
                     right->primitive = FLOAT;
                 }else if(strcmp(typeName, "CHAR") == 0){
@@ -702,14 +706,27 @@ Type* checkExp(TreeNode* Exp){
             }else{
                 typeError("unmatching operand", 5, Exp->children[1]->line);
             }
-        }else if(strcmp(Exp->children[1]->type, "DOT")){
-            if(strcmp(Exp->children[2]->type, "ID")){
-                Type* type = getType(typeTable, Exp->children[2]->value);
+        }else if(strcmp(Exp->children[1]->type, "DOT") == 0){
+            if(strcmp(Exp->children[2]->type, "ID") == 0){
+                char* attrName = Exp->children[2]->value;
+                Type* type = checkExp(Exp->children[0], subTable);
+                if(type->category == STRUCTURE){
+                    FieldList* curField = type->structure;
+                    while(curField != NULL){
+                        if(strcmp(curField->name, attrName) == 0){
+                            return curField->type;
+                        }
+                        curField = curField->next;
+                    }
+                    typeError("accessing an undefined structure member", 14, Exp->children[1]->line);
+                }else{
+                    typeError("accessing with non-struct variable", 13, Exp->children[1]->line);
+                }
                 return type;
             }
         }
     }else if(Exp->numChildren == 2){
-        Type* type = checkExp(Exp->children[1]);
+        Type* type = checkExp(Exp->children[1], subTable);
         if(strcmp(Exp->children[0]->type, "MINUS") == 0 || strcmp(Exp->children[0]->type, "NOT") == 0){
             if(type->category == PRIMITIVE && type->primitive == INT){
                 return type;
@@ -720,17 +737,25 @@ Type* checkExp(TreeNode* Exp){
     }else if(Exp->numChildren == 1){
         if(strcmp(Exp->children[0]->type, "ID") == 0){
             char* name = Exp->children[0]->value;
-            Type* type = getType(typeTable, name);
+            Type* type;
+            if(isContains(subTable, name)) type = getType(subTable, name);
+            else if(isContains(typeTable, name)) type = getType(typeTable, name);
+            else{
+                char errorMsg[50];
+                strcpy(errorMsg, name);
+                strcpy(errorMsg + strlen(name), " is used without a definition");
+                typeError(errorMsg, 1, Exp->children[0]->line);
+            }
             return type;
         }else{
-            Type* type = checkExp(Exp->children[0]);
+            Type* type = checkExp(Exp->children[0], subTable);
             return type;
         }
     }else if(Exp->numChildren == 4){
         if(strcmp(Exp->children[1]->type, "LB") == 0){
-            Type* type = checkExp(Exp->children[0]);
+            Type* type = checkExp(Exp->children[0], subTable);
             TreeNode* index = Exp->children[2];
-            Type* indexType = getIndexType(index);
+            Type* indexType = getIndexType(index, subTable);
             if(indexType == NULL || indexType->category != PRIMITIVE || indexType->primitive != INT){
                 typeError("indexing by non-integer", 12, Exp->children[1]->line);
             }else if(type->category == ARRAY){
@@ -743,12 +768,22 @@ Type* checkExp(TreeNode* Exp){
     return NULL;
 }
 
-Type* getIndexType(TreeNode* Exp){
+Type* getIndexType(TreeNode* Exp, TypeTable* subTable){
     if(Exp->numChildren == 1){
         if(strcmp(Exp->children[0]->type, "ID") == 0){
             char* name = Exp->children[0]->value;
-            Type* type = getType(typeTable, name);
-            return type;
+            if(isContains(subTable, name)){
+                Type* type = getType(subTable, name);
+                return type;
+            }else if(isContains(typeTable, name)){
+                Type* type = getType(typeTable, name);
+                return type;
+            }else{
+                char errorMsg[50];
+                strcpy(errorMsg, name);
+                strcpy(errorMsg + strlen(name), " is used without a definition");
+                typeError(errorMsg, 1, Exp->children[0]->line);
+            }
         }else if(strcmp(Exp->children[0]->type, "INT") == 0 || strcmp(Exp->children[0]->type, "FLOAT") == 0 || strcmp(Exp->children[0]->type, "CHAR") == 0){
             Type* type = (Type*)malloc(sizeof(Type));
             type->category = PRIMITIVE;
@@ -756,8 +791,8 @@ Type* getIndexType(TreeNode* Exp){
             return type;
         }
     }else if(Exp->numChildren == 4){
-        Type* type = getIndexType(Exp->children[0]);
-        Type* indexType = getIndexType(Exp->children[2]);
+        Type* type = getIndexType(Exp->children[0], subTable);
+        Type* indexType = getIndexType(Exp->children[2], subTable);
         if(indexType == NULL || indexType->category != PRIMITIVE || indexType->primitive != INT){
             return NULL;
         }
@@ -834,6 +869,31 @@ Type* processStruct(TreeNode* structSpecifier){
                     curVar = curVar->next;
                 }
                 freeList(varDecList);
+            }else{
+                //结构体
+                ListNode** varDecList = (ListNode**)malloc(sizeof(ListNode*));
+                *varDecList = NULL;
+                findNode(curNode->node, varDecList, "VarDec");
+                ListNode* curVar = *varDecList;
+                while(curVar != NULL){
+                    Type* subType = getType(typeTable, specifier->children[0]->children[1]->value);
+                    char* name;
+                    name = curVar->node->children[0]->value;
+                    strcpy(subType->name, name);
+                    int wrong = insertIntoTypeTable(innerTable, name, subType);
+                    if(wrong == 1){
+                        char errorMsg[50];
+                        strcpy(errorMsg, "variable \"");
+                        strcpy(errorMsg + 10, name);
+                        strcpy(errorMsg + 10 + strlen(name), "\" is redefined in the same scope");
+                        typeError(errorMsg, 3, specifier->line);
+                    }
+                    strcpy(curField->name, name);
+                    curField->type = subType;
+                    curField->next = (FieldList*)malloc(sizeof(FieldList));
+                    curField = curField->next;
+                    curVar = curVar->next;
+                }
             }
             curNode = curNode->next;
         }
