@@ -30,6 +30,9 @@ int insertIntoTypeTable(TypeTable* typeTable, char* name, Type* type){
         HashNode* pre;
         while(currentNode != NULL){
             if (strcmp(currentNode->name, name) == 0) {
+                if(checkType(currentNode->type, type) == 0){
+                    return 0;
+                }
                 return 1;
             }
             pre = currentNode;
@@ -41,6 +44,26 @@ int insertIntoTypeTable(TypeTable* typeTable, char* name, Type* type){
         typeTable->buckets[hash] = node;
     }
     return 0;
+}
+
+int checkType(Type* type1, Type* type2){
+    if(type1->category == ARRAY && type2->category == ARRAY){
+        return checkType(type1->array->base, type2->array->base);
+    }else if(type1->category == PRIMITIVE && type2->category == PRIMITIVE){
+        if(type1->primitive != type2->primitive){
+            return 1;
+        }else{
+            return 0;
+        }
+    }else if(type1->category == STRUCTURE && type2->category == STRUCTURE){
+        if(strcmp(type1->name, type2->name) != 0){
+            return 1;
+        }else{
+            return 0;
+        }
+    }else{
+        return 1;
+    }
 }
 
 bool isContains(TypeTable* typeTable, char* name){

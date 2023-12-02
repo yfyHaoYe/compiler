@@ -50,5 +50,7 @@ Type* getType(TypeTable* typeTable, char* name);
 void freeTypeTable(TypeTable* typeTable);
 
 bool isContains(TypeTable* typeTable, char* name);
+
+int checkType(Type* type1, Type* type2);
 #endif
 
