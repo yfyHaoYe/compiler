@@ -56,11 +56,7 @@ int checkType(Type* type1, Type* type2){
             return 0;
         }
     }else if(type1->category == STRUCTURE && type2->category == STRUCTURE){
-        if(strcmp(type1->name, type2->name) != 0){
-            return 1;
-        }else{
-            return 0;
-        }
+        return 1;
     }else{
         return 1;
     }
