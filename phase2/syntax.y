@@ -364,28 +364,12 @@ ExtDef : Specifier ExtDecList SEMI {
             checkExp(exp, funcVarTable);
         }else if(curStmt->node->numChildren == 3){
             //return
+            //here
             TreeNode* exp = curStmt->node->children[1];
             Type* returnType = checkExp(exp, funcVarTable);
             if(returnType != NULL && checkType(returnType, funcType->function->returnType) == 1){
                 typeError("incompatiable return type", 8, exp->line);
-            }else if(exp->numChildren >= 3  && strcmp(exp->children[1]->type, "LP") == 0){
-                char* name = exp->children[0]->value;
-                Type* returnFunc = getType(typeTable, name);
-                int paramCnt = 0;
-                ListNode** argsList = (ListNode**)malloc(sizeof(ListNode*));
-                *argsList = NULL;
-                findNode(exp->children[2], argsList, "Args");
-                ListNode* curArg = *argsList;
-                while(curArg != NULL){
-                    paramCnt++;
-                    curArg = curArg->next;
-                }
-                if(returnFunc->function->paramNum != paramCnt){
-                    printf("Error type 9 at Line %d: invalid argument number, expect %d, got %d\n", exp->line, returnFunc->function->paramNum, paramCnt);
-                }else if(checkType(returnFunc->function->returnType, funcType->function->returnType) == 1){
-                    typeError("incompatiable return type", 8, exp->line);
-                }
-            }       
+            }      
         }
         curStmt = curStmt->next;
     }
@@ -651,6 +635,7 @@ $$.line = $1.line;}
 %%
 
 Type* checkExp(TreeNode* Exp, TypeTable* subTable){
+    //fprintf(stderr, "%d %d %s %s\n", Exp->line, Exp->numChildren, Exp->type, Exp->children[0]->value);
     if(Exp->numChildren == 3){
         Type* left = checkExp(Exp->children[0], subTable);
         Type* right = checkExp(Exp->children[2], subTable);
@@ -789,6 +774,31 @@ Type* checkExp(TreeNode* Exp, TypeTable* subTable){
                 }
                 return type;
             }
+        }else if(strcmp(Exp->children[1]->type, "LP") == 0){
+            //返回return type
+            char* name = Exp->children[0]->value;
+            Type* funcType = getType(typeTable, name);
+            if(funcType == NULL || funcType->category != FUNCTION){
+                typeError("invoking non-function variable", 11, Exp->children[1]->line);
+                Type* type = (Type*)malloc(sizeof(Type));
+                type->category = PRIMITIVE;
+                type->primitive = INT;
+                return type;
+            }
+            int paramCnt = 0;
+            ListNode** argsList = (ListNode**)malloc(sizeof(ListNode*));
+            *argsList = NULL;
+            findNode(Exp->children[2], argsList, "Args");
+            ListNode* curArg = *argsList;
+            while(curArg != NULL){
+                paramCnt++;
+                curArg = curArg->next;
+            }
+            if(funcType->function->paramNum != paramCnt){
+                printf("Error type 9 at Line %d: invalid argument number, expect %d, got %d\n", Exp->line, funcType->function->paramNum, paramCnt);
+                return NULL;
+            }
+            return funcType->function->returnType;
         }
     }else if(Exp->numChildren == 2){
         Type* type = checkExp(Exp->children[1], subTable);
@@ -831,6 +841,30 @@ Type* checkExp(TreeNode* Exp, TypeTable* subTable){
             }else{
                 typeError("indexing on non-array variable", 10, Exp->children[1]->line);
             }
+        }else if(strcmp(Exp->children[1]->type, "LP") == 0){
+            //返回return type
+            char* name = Exp->children[0]->value;
+            Type* funcType = getType(typeTable, name);
+            if(funcType == NULL || funcType->category != FUNCTION){
+                typeError("invoking non-function variable", 11, Exp->children[1]->line);
+                Type* type = (Type*)malloc(sizeof(Type));
+                type->category = PRIMITIVE;
+                type->primitive = INT;
+                return type;
+            }
+            int paramCnt = 0;
+            ListNode** argsList = (ListNode**)malloc(sizeof(ListNode*));
+            *argsList = NULL;
+            findNode(Exp->children[2], argsList, "Args");
+            ListNode* curArg = *argsList;
+            while(curArg != NULL){
+                paramCnt++;
+                curArg = curArg->next;
+            }
+            if(funcType->function->paramNum != paramCnt){
+                printf("Error type 9 at Line %d: invalid argument number, expect %d, got %d\n", Exp->line, funcType->function->paramNum, paramCnt);
+            }
+            return funcType->function->returnType;
         }
     }
     return NULL;
