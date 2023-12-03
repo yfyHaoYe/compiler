@@ -640,7 +640,7 @@ Type* checkExp(TreeNode* Exp, TypeTable* subTable){
         Type* left = checkExp(Exp->children[0], subTable);
         Type* right = checkExp(Exp->children[2], subTable);
         if(strcmp(Exp->children[1]->type, "ASSIGN") == 0){
-            if(Exp->children[0]->numChildren == 1 && strcmp(Exp->children[2]->children[0]->type, "ID") != 0){
+            if(Exp->children[0]->numChildren == 1 && strcmp(Exp->children[0]->children[0]->type, "ID") != 0){
                 typeError("rvalue appears on the left-side of assignment", 6, Exp->children[1]->line);
                 return NULL;
             }

@@ -1,0 +1,25 @@
+//struct
+struct Child{
+    int weight;
+    int age;
+    int name;
+};
+
+struct Teacher{
+    int weight;
+    int age;
+    int name;
+};
+
+struct Animal{
+    int weight;
+    int age;
+};
+
+int main(){
+    struct Children c;
+    struct Teacher t;
+    struct Animal a;
+    c = t;
+    c = a;
+}
