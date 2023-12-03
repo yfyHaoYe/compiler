@@ -80,14 +80,12 @@ bool isContains(TypeTable* typeTable, char* name){
 Type* getType(TypeTable* typeTable, char* name) {
     unsigned int hash = hashFunction(name);
     HashNode* currentNode = typeTable->buckets[hash];
-
     while (currentNode != NULL) {
         if (strcmp(currentNode->name, name) == 0) {
             return currentNode->type;
         }
         currentNode = currentNode->next;
     }
-
     return NULL;
 }
 

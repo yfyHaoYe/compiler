@@ -20,6 +20,7 @@ typedef struct Type {
 typedef struct Function{
     char* name;
     Type* returnType;
+    int paramNum;
     struct FieldList* varList;
 } Function;
 
