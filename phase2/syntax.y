@@ -26,6 +26,7 @@
     void findNodeExcept(TreeNode* node, ListNode** list, char* type, char* except);
     void checkFunc(char* name, int line);
     void checkFuncVar(char* name, int line, ListNode* argList);
+    char* getTypeFromCategory(Type* type);
 %}
 %union {
     struct {
@@ -94,6 +95,11 @@ ExtDef : Specifier ExtDecList SEMI {
             name = varDec->children[0]->value;
             strcpy(type->name, name);
             type->category = PRIMITIVE;
+
+            // char* msg = type -> name;
+            // strcat(msg, getTypeFromCategory(type));
+            // printf("%s is not good", msg);
+
             curLine = varDec->children[0]->line;
             char* typeName = $1->children[0]->value;
             if(strcmp(typeName, "int") == 0){
@@ -156,7 +162,7 @@ ExtDef : Specifier ExtDecList SEMI {
     funcType -> function ->returnType = returnType;
 
     FieldList* varList = NULL;
-    FieldList* curVar = varList;
+    FieldList* curVar = NULL;
 
     TypeTable* funcVarTable = (TypeTable*)malloc(sizeof(TypeTable));
     //函数定义,函数参数定义FunDec
@@ -189,11 +195,19 @@ ExtDef : Specifier ExtDecList SEMI {
                 strcpy(errorMsg + 10 + strlen(name), "\" is redefined in the same scope");
                 typeError(errorMsg, 3, curParamDec->node->children[1]->children[0]->line);
             } else {
-                curVar = (FieldList*)malloc(sizeof(FieldList));
-                curVar -> type = type;
-                strcpy(curVar -> name, name);
-                curVar -> next = NULL;
-                curVar = curVar -> next;
+                FieldList* newField = (FieldList*)malloc(sizeof(FieldList));
+                newField -> type = type;
+                strcpy(newField -> name, name);
+                newField -> next = NULL;
+                if (varList == NULL) {
+                    varList = newField;
+                    curVar = newField;
+                }
+                else {
+                    curVar -> next = newField;
+                    curVar = newField;
+                }
+                // curVar = (FieldList*)malloc(sizeof(FieldList));
             }
         }else{
             Type* type = getType(typeTable, specifier->children[0]->children[1]->value);
@@ -214,11 +228,18 @@ ExtDef : Specifier ExtDecList SEMI {
                     strcpy(errorMsg + 10 + strlen(name), "\" is redefined in the same scope");
                     typeError(errorMsg, 3, curParamDec->node->children[1]->children[0]->line);
                 }else {
-                    curVar = (FieldList*)malloc(sizeof(FieldList));
-                    curVar -> type = type;
-                    strcpy(curVar -> name, name);
-                    curVar -> next = NULL;
-                    curVar = curVar -> next;
+                    FieldList* newField = (FieldList*)malloc(sizeof(FieldList));
+                    newField -> type = type;
+                    strcpy(newField -> name, name);
+                    newField -> next = NULL;
+                    if (varList == NULL) {
+                        varList = newField;
+                        curVar = newField;
+                    }
+                    else {
+                        curVar -> next = newField;
+                        curVar = newField;
+                    }
                 }
             }
         }
@@ -226,16 +247,15 @@ ExtDef : Specifier ExtDecList SEMI {
     }
     
     funcType -> function -> varList = varList;
-
     int funcwrong = insertIntoTypeTable(typeTable, funcType->name ,funcType);
     
     if(funcwrong == 1){
-        char errorMsg[50];
-        strcat(errorMsg, "\"");
+        char errorMsg[50] = "\"";
         strcat(errorMsg, funcType->name);
         strcat(errorMsg, "\" is redefined");
         typeError(errorMsg, 3, line);
     }
+
     //函数内部变量定义CompSt
     TreeNode* compSt = $3;
     ListNode** defList = (ListNode**)malloc(sizeof(ListNode*));
@@ -562,7 +582,6 @@ Exp : Exp ASSIGN Exp {
     $$ = createNode("Exp", "", $1, 2, createNode("NOT", "", $1, 0), $2);
 }
 | ID LP RP {
-    printf("bug is in here");
     $$ = createNode("Exp", "", $1.line, 3, createNode("ID", $1.string, $1.line, 0), createNode("LP", "", $1.line, 0), createNode("RP", "", $1.line, 0));
     checkFunc($1.string, $1.line);
 }
@@ -644,21 +663,18 @@ void checkFunc(char* name, int line){
 void checkFuncVar(char* name, int line, ListNode* argList){
     Type* funcType = getType(typeTable, name);
     if (funcType == NULL || funcType -> category != FUNCTION){
-        char errorMsg[50];
-        strcat(errorMsg, " \"");
+        char errorMsg[50] = "\"";
         strcat(errorMsg, name);
         strcat(errorMsg, "\" is invoked without a definition");
         typeError(errorMsg, 2, line);
         return;
     }
-    if (funcType -> function -> varList == NULL){
+    FieldList* varList = funcType -> function -> varList;
+    if (varList == NULL){
         // error2
         printf("this is not a args function !\n");
         return;
     }
-    
-    FieldList* varList = funcType -> function -> varList;
-
     int varNum = 0;
     int argNum = 0;
     ListNode* curArg = argList;
@@ -676,31 +692,69 @@ void checkFuncVar(char* name, int line, ListNode* argList){
 
     if (varNum != argNum){
         // error3
+        printf("%d",varNum);
+        printf("%d",argNum);
         printf("Args don't match !\n");
         return;
     }
-
     curVar = varList;
     curArg = argList;
     while(curVar !=NULL){
-        Type* type = (Type*)malloc(sizeof(Type));
-        if (strcmp(curArg -> node -> value, "INT")){
-            if(strcmp(curArg -> node -> value, "int") == 0){
-                type->primitive = INT;
-            }else if(strcmp(curArg -> node -> value, "float") == 0){
-                type->primitive = FLOAT;
-            }else if(strcmp(curArg -> node -> value, "char") == 0){
-                type->primitive = CHAR;
-            }
-        }
-        if (checkType(curVar -> type, type) == 1){
-            // error4
-            printf("this is not a function !\n");
+        Type* argType = getType(typeTable, curArg -> node -> children[0] -> value);
+        if (argType == NULL){
+            char errorMsg[50] = "\"";
+            strcat(errorMsg, curArg -> node -> children[0] -> value);
+            strcat(errorMsg,"\" is used without a definition");
+            typeError(errorMsg, 1, line);
             return;
+        }
+        char* varTypeName = getTypeFromCategory(curVar -> type);
+        char* argTypeName = getTypeFromCategory(argType);
+        if (varTypeName==NULL||argTypeName == NULL){
+            return;
+        }
+        printf("var: %s, arg: %s", varTypeName, argTypeName);
+        
+        if (!checkType(argType, curVar -> type)){
+            char errorMsg[50] = "argument's type mismatch, excepted ";
+            strcat(errorMsg, varTypeName);
+            strcat(errorMsg, ", got ");
+            strcat(errorMsg, argTypeName);
+            typeError(errorMsg, 9, line);
         }
         curVar = curVar -> next;
         curArg = curArg -> next;
     }
+}
+char* getTypeFromCategory(Type* type){
+    char* name;
+    if (type -> category == NULL){
+        printf("why?? %s \n", type ->name);
+    }
+    printf("why?? %s \n", type ->name);
+    if (type -> category == PRIMITIVE){
+        if (type->primitive == INT){
+            return "int";
+        }
+        if (type->primitive == FLOAT){
+            return "float";
+        }
+        if (type->primitive == CHAR){
+            return "char";
+        }
+    }
+    if (type -> category == ARRAY){
+        char* name = "array of";
+        strcat(name, getTypeFromCategory(type->array->base));
+        return name;
+    }
+    if (type -> category == STRUCTURE){
+        return "structure";
+    }
+    if (type -> category == FUNCTION){
+        return "function";
+    }
+    return NULL;
 }
 
 Type* checkExp(TreeNode* Exp){
