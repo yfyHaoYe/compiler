@@ -728,10 +728,6 @@ void checkFuncVar(char* name, int line, ListNode* argList){
 }
 char* getTypeFromCategory(Type* type){
     char* name;
-    if (type -> category == NULL){
-        printf("why?? %s \n", type ->name);
-    }
-    printf("why?? %s \n", type ->name);
     if (type -> category == PRIMITIVE){
         if (type->primitive == INT){
             return "int";
