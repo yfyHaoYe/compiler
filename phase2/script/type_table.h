@@ -60,5 +60,7 @@ void freeTypeTable(TypeTable* typeTable);
 bool isContains(TypeTable* typeTable, char* name);
 
 int checkType(Type* type1, Type* type2);
+
+int checkStructure(FieldList* fieldList1, FieldList* fieldList2);
 #endif
 

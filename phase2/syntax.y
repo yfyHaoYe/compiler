@@ -130,7 +130,7 @@ ExtDef : Specifier ExtDecList SEMI {
         strcpy(errorMsg, "variable \"");
         strcpy(errorMsg + 10, name);
         strcpy(errorMsg + 10 + strlen(name), "\" is redefined in the same scope");
-        typeError(errorMsg, 3,structSpecifier->children[1]->line);
+        typeError(errorMsg, 15,structSpecifier->children[1]->line);
     }
 }
 | Specifier FunDec CompSt {
@@ -288,16 +288,24 @@ ExtDef : Specifier ExtDecList SEMI {
                     }else if(strcmp(typeName, "char") == 0){
                         type->primitive = CHAR;
                     }
+                    int wrong = insertIntoTypeTable(funcVarTable, name, type);
+                    if(wrong == 1){
+                        char errorMsg[50];
+                        strcpy(errorMsg, "variable \"");
+                        strcpy(errorMsg + 10, name);
+                        strcpy(errorMsg + 10 + strlen(name), "\" is redefined in the same scope");
+                        typeError(errorMsg, 3, id->line);
+                    }
                 }else{
                     type = getType(typeTable, specifier->children[0]->children[1]->value);
-                }
-                int wrong = insertIntoTypeTable(funcVarTable, name, type);
-                if(wrong == 1){
-                    char errorMsg[50];
-                    strcpy(errorMsg, "variable \"");
-                    strcpy(errorMsg + 10, name);
-                    strcpy(errorMsg + 10 + strlen(name), "\" is redefined in the same scope");
-                    typeError(errorMsg, 3, id->line);
+                    int wrong = insertIntoTypeTable(funcVarTable, name, type);
+                    if(wrong == 1){
+                        char errorMsg[50];
+                        strcpy(errorMsg, "variable \"");
+                        strcpy(errorMsg + 10, name);
+                        strcpy(errorMsg + 10 + strlen(name), "\" is redefined in the same scope");
+                        typeError(errorMsg, 3, id->line);
+                    }
                 }
             }else{
                 //数组
