@@ -30,6 +30,9 @@ int insertIntoTypeTable(TypeTable* typeTable, char* name, Type* type){
         HashNode* pre;
         while(currentNode != NULL){
             if (strcmp(currentNode->name, name) == 0) {
+                if(currentNode->type->category != STRUCTURE && checkType(currentNode->type, type) == 0){
+                    return 0;
+                }
                 return 1;
             }
             pre = currentNode;
