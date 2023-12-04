@@ -1,0 +1,5 @@
+Error type 8 at Line 22: incompatiable return type
+Error type 1 at Line 37: "bug" is used without a definition
+Error type 5 at Line 38: invalid argument type
+Error type 9 at Line 40: invalid argument number, except 2, got 0
+Error type 9 at Line 41: invalid argument number, except 0, got 2

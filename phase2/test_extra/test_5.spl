@@ -1,0 +1,39 @@
+int add(int x, int y)
+{
+    int res = x + y;
+    return res;
+}
+
+int sub(int x, int y)
+{
+    int res = x - y;
+    return res;
+}
+
+int times(int x, int y)
+{
+    int res = x * y;
+    return res;
+}
+
+struct Calculater
+{
+    int add;
+    int sub;
+    float times;
+    int res;
+}
+
+int test_5()
+{
+    struct Calculater cal;
+    int a1, a2;
+    int res;
+    int b = cal.add;
+    int c = cal.sub;
+    int d = cal.times;
+    int e = cal.add + b;
+    int f = sub(a1, b1);
+    int res = result();
+    return 0;
+}

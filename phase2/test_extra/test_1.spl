@@ -1,0 +1,43 @@
+int sum(int x, int y)
+{
+    int res = x + y;
+    return res;
+}
+
+int sub(int x, int y, int res)
+{
+    res = x - y;
+    return res;
+}
+
+int times(int x, int y, int res)
+{
+    res = x * y;
+    return res;
+}
+
+int div(int x, int y, int res)
+{
+    res = x / y;
+    return 0.1;
+}
+
+int minusOne()
+{
+    int a = -1;
+    return a;
+}
+
+int test_1()
+{
+    int a1, a2;
+    float bug2;
+    int bug3;
+    int b = sum(a1, a2);
+    int c = sub(a1, a2, bug);
+    int d = times(a1, a2, bug2);
+    int e = div(a1, a2, bug3);
+    b = sum();
+    c = minusOne(a1, a2);
+    return 0;
+}

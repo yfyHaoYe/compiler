@@ -1,0 +1,27 @@
+struct Student
+{
+    int weight;
+    float height;
+    int age;
+};
+
+struct Teacher
+{
+    int weight;
+    float height;
+    int age;
+};
+
+
+int test_2_r07()
+{
+    struct Student amy;
+    struct Teacher tom = amy;
+    struct Teacher jerry = tom;
+    int age;
+    float age;
+    jerry = amy.age;
+    amy.age = tom;
+    tom.age = age;
+    return amy.age;
+}
