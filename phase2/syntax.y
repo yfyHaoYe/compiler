@@ -256,7 +256,7 @@ ExtDef : Specifier ExtDecList SEMI {
         char errorMsg[50] = "\"";
         strcat(errorMsg, funcType->name);
         strcat(errorMsg, "\" is redefined");
-        typeError(errorMsg, 3, line);
+        typeError(errorMsg, 4, line);
     }
 
     //函数内部变量定义CompSt
@@ -944,7 +944,7 @@ void checkFunc(char* name, int line){
         char errorMsg[50];
         strcpy(errorMsg, name);
         strcpy(errorMsg + strlen(name), " is invoked without a definition");
-        typeError(errorMsg, 1, line);
+        typeError(errorMsg, 2, line);
     }
 }
 
@@ -957,6 +957,7 @@ Type* processStruct(TreeNode* structSpecifier){
         type->category = STRUCTURE;
         type->structure = (FieldList*)malloc(sizeof(FieldList));
         FieldList* curField = type->structure;
+        FieldList* pre;
         TreeNode* defListNode = structSpecifier->children[3];
         ListNode** defList = (ListNode**)malloc(sizeof(ListNode*));
         *defList = NULL;
@@ -993,11 +994,14 @@ Type* processStruct(TreeNode* structSpecifier){
                             strcpy(errorMsg + 10, name);
                             strcpy(errorMsg + 10 + strlen(name), "\" is redefined in the same scope");
                             typeError(errorMsg, 3, id->line);
+                        }else{
+                            strcpy(curField->name, name);
+                            curField->type = subType;
+                            curField->next = (FieldList*)malloc(sizeof(FieldList));
+                            pre = curField;
+                            curField = curField->next;
+                            curField->next = NULL;
                         }
-                        strcpy(curField->name, name);
-                        curField->type = subType;
-                        curField->next = (FieldList*)malloc(sizeof(FieldList));
-                        curField = curField->next;
                     }else{
                         //数组
                         processArray(curVar->node, subType, specifier);
@@ -1008,10 +1012,12 @@ Type* processStruct(TreeNode* structSpecifier){
                             strcpy(errorMsg + 10, name);
                             strcpy(errorMsg + 10 + strlen(name), "\" is redefined in the same scope");
                             typeError(errorMsg, 3, curVar->node->children[2]->line);
+                        }else{
+                            curField->type = subType;
+                            curField->next = (FieldList*)malloc(sizeof(FieldList));
+                            curField = curField->next;
+                            curField->next = NULL;
                         }
-                        curField->type = subType;
-                        curField->next = (FieldList*)malloc(sizeof(FieldList));
-                        curField = curField->next;
                     }
                     curVar = curVar->next;
                 }
@@ -1039,11 +1045,14 @@ Type* processStruct(TreeNode* structSpecifier){
                     curField->type = subType;
                     curField->next = (FieldList*)malloc(sizeof(FieldList));
                     curField = curField->next;
+                    curField->next = NULL;
                     curVar = curVar->next;
                 }
             }
             curNode = curNode->next;
         }
+        free(curField);
+        pre->next = NULL;
         freeList(defList);
     }else{
         //只有定义无声明
