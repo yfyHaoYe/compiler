@@ -36,8 +36,11 @@
     void initStruct(char* name);
     void initArray(int size);
     bool insert();
+    bool insertClear();
+    bool insertRecreate();
     bool insertFunction();
     bool insertStructure();
+    void clearArray();
     bool check(char* name);
     void freeLastTable();
     void printAllTable();
@@ -52,7 +55,7 @@
 %type<str_line> INT CHAR
 %token<str_line> TYPE ID FLOAT DECINT HEXINT PCHAR HEXCHAR STR
 %token<str_line.line> LC RC SEMI COMMA STRUCT RETURN WHILE IF
-%type<node> Program ExtDefList ExtDef ExtDecList Specifier StructSpecifier VarDec FunDec VarList ParamDec CompSt StmtList Stmt DefList Def DecList Dec Exp Args ErrorStmt
+%type<node> Program ExtDefList ExtDef ExtDecList Specifier StructSpecifier VarDec FunDec VarList ParamDec CompSt StmtList Stmt DefList Def DecList Dec Exp Args ErrorStmt FunID StructDec
 %nonassoc<node> LOWER
 %nonassoc<str_line.line> ELSE
 %nonassoc<str_line.line> ASSIGN
@@ -106,15 +109,14 @@ ExtDef : Specifier ExtDecList SEMI {
 ExtDecList : VarDec {
     $$ = createNode("ExtDecList", "", $1->line, 1, $1);
     insert();
+    clearArray();
 }
 |
 // modified: can't handle VarDec COMMA ExtDecList, changed to:
     ExtDecList COMMA VarDec{
     $$ = createNode("ExtDecList", "", $1->line, 3, $1, createNode("COMMA", "", $2, 0), $3);
     insert();
-    while(type -> category == ARRAY){
-        type = type -> array -> base;
-    }
+    clearArray();
 }
 ;
 /* specifier */
@@ -128,45 +130,53 @@ Specifier : TYPE {
 ;
 
 StructSpecifier : StructDec LC DefList RC {
-    $$ = createNode("StructSpecifier", "", $1, 5, createNode("STRUCT", "", $1, 0), createNode("ID", $2.string, $2.line, 0), createNode("LC", "", $3, 0), $4, createNode("RC", "", $5, 0));
+    $$ = createNode("StructSpecifier", "", $1 -> line, 5, $1 -> children[0], $1 -> children[1], createNode("LC", "", $2, 0), $3, createNode("RC", "", $4, 0));
     insertStructure();
 }
 | StructDec {
-    $$ = createNode("StructSpecifier", "", $1, 2, createNode("STRUCT", "", $1, 0), createNode("ID", $2.string, $2.line, 0));
+    $$ = createNode("StructSpecifier", "", $1 -> line, 2, $1 -> children[0], $1 -> children[1]);
     insertStructure();
 }
 ;
 /* declarator */
 // modified: add StructDec
 StructDec : STRUCT ID {
+    $$ = createNode("StructDec", "", $1, 2, createNode("STRUCT", "", $1, 0), createNode("ID", $2.string, $2.line, 0));
     initStruct($2.string);
 }
+;
 VarDec : ID {
     $$ = createNode("VarDec", "", $1.line, 1, createNode("ID", $1.string, $1.line, 0));
     type -> name = $1.string;
 }
 | VarDec LB INT RB {
     $$ = createNode("VarDec", "", $1->line, 4, $1, createNode("LB", "", $2, 0), createNode("INT", $3.string, $3.line, 0), createNode("RB", "", $4, 0));
-    // TODO: is $2.string a int?
+    // TODO: is $3.string a int?
     initArray(atoi($3.string));
 }
 | VarDec LB INT error {
     yyerror(" Missing closing square bracket ']'");
 }
 ;
-FunDec : ID LP VarList RP {
-    $$ = createNode("FunDec", "", $1.line, 4, createNode("ID", $1.string, $1.line, 0), createNode("LP", "", $2, 0), $3, createNode("RP", "", $4, 0));
-    functionType -> name = $1.string;
+FunDec : FunID LP VarList RP {
+    $$ = createNode("FunDec", "", $1->line, 4, $1, createNode("LP", "", $2, 0), $3, createNode("RP", "", $4, 0));
+    functionType -> name = $1 -> value;
 }
-| ID LP RP {
-    $$ = createNode("FunDec", "", $1.line, 3, createNode("ID", $1.string, $1.line, 0), createNode("LP", "", $2, 0), createNode("RP", "", $3, 0));
-    functionType -> name = $1.string;
+| FunID LP RP {
+    $$ = createNode("FunDec", "", $1->line, 3, $1, createNode("LP", "", $2, 0), createNode("RP", "", $3, 0));
+    functionType -> name = $1 -> value;
 }
-|ID LP VarList error {
+|FunID LP VarList error {
     yyerror(" Missing closing parenthesis ')'");
 }
-|ID LP error {
+|FunID LP error {
     yyerror(" Missing closing parenthesis ')'");
+}
+;
+// modified: add FunID
+FunID : ID {
+    $$ = createNode("ID", $1.string, $1.line, 0);
+    initFunction();
 }
 ;
 VarList : ParamDec COMMA VarList {
@@ -179,11 +189,10 @@ VarList : ParamDec COMMA VarList {
 }
 | ParamDec {
     $$ = createNode("VarList", "", $1->line, 1, $1);
-    functionType -> function -> varList = (TypeList*)malloc(sizeof(TypeList));
     functionType -> function -> varList -> type = type;
     type = NULL;
 }
-
+;
 ParamDec : Specifier VarDec {
     $$ = createNode("ParamDec", "", $1->line, 2, $1, $2);
     if (!creatingFunction){
@@ -271,15 +280,18 @@ Def : Specifier DecList SEMI {
 DecList : Dec {
     $$ = createNode("DecList", "", $1->line, 1, $1);
 }
-| Dec COMMA DecList {
+|// modified: Dec COMMA DecList
+DecList COMMA Dec {
     $$ = createNode("DecList", "", $1->line, 3, $1, createNode("COMMA", "", $2, 0), $3);
 }
 ;
 Dec : VarDec {
     $$ = createNode("Dec", "", $1->line, 1, $1);
+    insertRecreate();
 }
 | VarDec ASSIGN Exp {
     $$ = createNode("Dec", "", $1->line, 3, $1, createNode("ASSIGN", "", $2, 0), $3);
+    insertRecreate();
 }
 ;
 
@@ -525,7 +537,7 @@ void push(){
 
 void pop(){
     if (scopeDepth == -1){
-        my_print("Scope is empty, can't pop!")
+        my_print("Scope is empty, can't pop!");
         return;
     }
     freeTypeTable(scopeStack[scopeDepth--]);
@@ -555,7 +567,9 @@ void initFunction(){
     functionType = (Type*)malloc(sizeof(Type));
     functionType -> category = FUNCTION;
     functionType -> function = (Function*) malloc(sizeof(Function));
+    functionType -> function -> paramNum = 0;
     functionType -> function -> returnType = type;
+    functionType -> function -> varList = (TypeList*)malloc(sizeof(TypeList));
 }
 void initStruct(char* name){
     structureType = (Type*) malloc(sizeof(Type));
@@ -590,6 +604,21 @@ bool insertClear(){
     type = NULL;
     return success;
 }
+bool insertRecreate() {
+    bool success = insert();
+    Type* temp = (Type*)malloc(sizeof(Type));
+    clearArray();
+    temp -> name = temp -> name;
+    temp -> category = type -> category;
+    // TODO: handle more struct
+    type = temp;
+}
+
+void clearArray() {
+    while(type -> category == ARRAY){
+        type = type -> array -> base;
+    }
+}
 
 bool insertFunction(){
     // TODO: same name function handling.
@@ -623,10 +652,10 @@ bool insertStructure(){
 bool check(char* name) {
     for (int i = scopeDepth; i>=0; i--) {
         if(contain(scopeStack[i], name)) {
-            return false;
+            return true;
         }
     }
-    return true;
+    return false;
 }
 
 void printAllTable() {
