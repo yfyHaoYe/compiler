@@ -42,6 +42,7 @@
     bool insertStructure();
     void clearArray();
     bool check(char* name);
+    Type* get(char* name);
     void freeLastTable();
     void printAllTable();
 %}
@@ -222,15 +223,19 @@ Stmt : Exp SEMI {
 }
 | RETURN Exp SEMI {
     $$ = createNode("Stmt", "", $1, 3, createNode("RETURN", "", $1, 0), $2, createNode("SEMI", "", $3, 0));
+    // TODO: checkReturn()
 }
 | IF LP Exp RP Stmt %prec LOWER {
     $$ = createNode("Stmt", "", $1, 5, createNode("IF", "", $1, 0), createNode("LP", "", $2, 0), $3, createNode("RP", "", $4, 0), $5);
+    // TODO: Exp should be bool
 }
 | IF LP Exp RP Stmt ELSE Stmt {
     $$ = createNode("Stmt", "", $1, 7, createNode("IF", "", $1, 0), createNode("LP", "", $2, 0), $3, createNode("RP", "", $4, 0), $5, createNode("ELSE", "", $6, 0), $7);
+    // TODO: Exp should be bool
 }
 | WHILE LP Exp RP Stmt {
     $$ = createNode("Stmt", "", $1, 5, createNode("WHILE", "", $1, 0), createNode("LP", "", $2, 0), $3, createNode("RP", "", $4, 0), $5);
+    // TODO: Exp should be bool
 }
 | Exp error {
     yyerror(" Missing semicolon ';'");
@@ -268,6 +273,8 @@ DefList : Def DefList {
 ;
 Def : Specifier DecList SEMI {
     $$ = createNode("Def", "", $1->line, 3, $1, $2, createNode("SEMI", "", $3, 0));
+    free(type);
+    type = NULL;
 }
 | Specifier DecList error {
     yyerror(" Missing semicolon ';'");
@@ -298,9 +305,13 @@ Dec : VarDec {
 /* Expression */
 Exp : Exp ASSIGN Exp {
     $$ = createNode("Exp", "", $1->line, 3, $1, createNode("ASSIGN", "", $2, 0), $3);
+    // TODO: return type null or type of exp1?
+    // TODO: type equal check
+    // TODO: rvalue check
 }
 | Exp AND Exp {
     $$ = createNode("Exp", "", $1->line, 3, $1, createNode("AND", "", $2, 0), $3);
+    // TODO: which type?
 }
 | Exp OR Exp {
     $$ = createNode("Exp", "", $1->line, 3, $1, createNode("OR", "", $2, 0), $3);
@@ -346,30 +357,43 @@ Exp : Exp ASSIGN Exp {
 }
 | ID LP RP {
     $$ = createNode("Exp", "", $1.line, 3, createNode("ID", $1.string, $1.line, 0), createNode("LP", "", $1.line, 0), createNode("RP", "", $1.line, 0));
+    // TODO: function check
 }
 | Exp LB Exp RB {
     $$ = createNode("Exp", "", $1->line, 4, $1, createNode("LB", "", $2, 0), $3, createNode("RB", "", $4, 0));
+    // TODO: array check
 }
 | Exp DOT ID {
     $$ = createNode("Exp", "", $1->line, 3, $1, createNode("DOT", "", $2, 0), createNode("ID", $3.string, $3.line, 0));
+    // TODO: structure check
 }
 | ID {
     $$ = createNode("Exp", "", $1.line, 1, createNode("ID", $1.string, $1.line, 0));
+    if (!check($1.string)){
+        // TODO: error: can't find id
+    }
+    type = get();
 }
 | INT {
     $$ = createNode("Exp", "", $1.line, 1, createNode("INT", $1.string, $1.line, 0));
+    init("int");
 }
 | FLOAT {
     $$ = createNode("Exp", "", $1.line, 1, createNode("FLOAT", $1.string, $1.line, 0));
+    init("float");
 }
 | CHAR {
     $$ = createNode("Exp", "", $1.line, 1, createNode("CHAR", $1.string, $1.line, 0));
+    init("char");
 }
 | STR {
     $$ = createNode("Exp", "", $1.line, 1, createNode("STR", $1.string, $1.line, 0));
+    init("string");
 }
 | ID LP Args RP {
     $$ = createNode("Exp", "", $1.line, 4, createNode("ID", $1.string, $1.line, 0), createNode("LP", "", $2, 0), $3, createNode("RP", "", $2, 0));
+    // TODO: Function invoking
+    init("function");
 }
 | ID LP Args error {
     yyerror(" Missing closing parenthesis ')'");
@@ -529,7 +553,7 @@ void push(){
         return;
     }
     if (scopeDepth == MAX_DEPTH){
-        my_print("Scope depth exceed, can't push!");
+        printf("Scope depth exceed, can't push!\n");
         return;
     }
     scopeStack[++scopeDepth] = (TypeTable*) malloc(sizeof(TypeTable));
@@ -537,7 +561,7 @@ void push(){
 
 void pop(){
     if (scopeDepth == -1){
-        my_print("Scope is empty, can't pop!");
+        printf("Scope is empty, can't pop!\n");
         return;
     }
     freeTypeTable(scopeStack[scopeDepth--]);
@@ -545,6 +569,9 @@ void pop(){
 }
 
 void init(char* category) {
+    if (type != NULL){
+        printf("type isn't correct clear! find in init\n");
+    }
     type = (Type*) malloc(sizeof(Type));
     if (strcmp(category, "int")) {
         type -> category = INT;
@@ -559,9 +586,13 @@ void init(char* category) {
         type -> category = STRING;
     }else{
         // TODO: something wrong
+        printf("category can't organized! find in init\n");
     }
 }
 void initFunction(){
+    if (functionType != NULL){
+        printf("function type isn't correct clear! find in initFunction\n");
+    }
     push();
     creatingFunction = true;
     functionType = (Type*)malloc(sizeof(Type));
@@ -572,11 +603,15 @@ void initFunction(){
     functionType -> function -> varList = (TypeList*)malloc(sizeof(TypeList));
 }
 void initStruct(char* name){
+    if (structureType != NULL){
+        printf("structure type isn't correct clear! find in initStruct\n");
+    }
     structureType = (Type*) malloc(sizeof(Type));
     structureType -> name = name;
     structureType -> category = STRUCTURE;
-    structureType -> structure = (TypeList*) malloc(sizeof(TypeList));
+    structureType -> structure = (TypeTable*) malloc(sizeof(TypeTable));
 }
+
 void initArray(int size){
     Array* array = (Array*)malloc(sizeof(Array));
     array -> base = type;
@@ -586,6 +621,7 @@ void initArray(int size){
     type -> category = ARRAY;
     type -> array = array;
 }
+
 bool insert() {
     if (!check(type -> name)) {
         // TODO: type name same error
@@ -629,7 +665,7 @@ bool insertFunction(){
     bool success = insertIntoTypeTable(scopeStack[scopeDepth], functionType);
     if (!success) {
         // TODO: something is wrong 
-        // printf("why?!");
+        // printf("why?!\n");
     }
     functionType = NULL;
     return success;
@@ -643,7 +679,7 @@ bool insertStructure(){
     bool success = insertIntoTypeTable(scopeStack[scopeDepth], structureType);
     if (!success) {
         // TODO: something is wrong 
-        // printf("why?!");
+        // printf("why?!\n");
     }
     structureType = NULL;
     return success;
@@ -656,6 +692,17 @@ bool check(char* name) {
         }
     }
     return false;
+}
+
+Type* get(char* name) {
+    Type* result;
+    for (int i = scopeDepth; i>=0; i--) {
+        result = getType(scopeStack[i], name);
+        if(result != NULL) {
+            return result;
+        }
+    }
+    return NULL;
 }
 
 void printAllTable() {

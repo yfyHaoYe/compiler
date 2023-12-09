@@ -6,7 +6,7 @@ FILE* output_file;
 void my_print(const char* format, ...)
 {
     if (output_file == NULL){
-        printf("No output path!");
+        printf("No output file! find in my_print\n");
         return;
     }
     va_list args;
