@@ -43,6 +43,7 @@
     void clearArray();
     bool check(char* name);
     Type* get(char* name);
+    bool equal(Type* type1, Type* type2);
     void freeLastTable();
     void printAllTable();
 %}
@@ -354,6 +355,8 @@ Exp : Exp ASSIGN Exp {
 }
 | NOT Exp {
     $$ = createNode("Exp", "", $1, 2, createNode("NOT", "", $1, 0), $2);
+    // equal();
+    init("");
 }
 | ID LP RP {
     $$ = createNode("Exp", "", $1.line, 3, createNode("ID", $1.string, $1.line, 0), createNode("LP", "", $1.line, 0), createNode("RP", "", $1.line, 0));
@@ -369,10 +372,10 @@ Exp : Exp ASSIGN Exp {
 }
 | ID {
     $$ = createNode("Exp", "", $1.line, 1, createNode("ID", $1.string, $1.line, 0));
-    if (!check($1.string)){
+    type = get($1.string);
+    if (type == NULL) {
         // TODO: error: can't find id
     }
-    type = get();
 }
 | INT {
     $$ = createNode("Exp", "", $1.line, 1, createNode("INT", $1.string, $1.line, 0));
@@ -393,7 +396,14 @@ Exp : Exp ASSIGN Exp {
 | ID LP Args RP {
     $$ = createNode("Exp", "", $1.line, 4, createNode("ID", $1.string, $1.line, 0), createNode("LP", "", $2, 0), $3, createNode("RP", "", $2, 0));
     // TODO: Function invoking
-    init("function");
+    functionType = get($1.string);
+    if (functionType -> category != FUNCTION) {
+        // TODO: error
+    }
+    // TODO: argument check
+    TypeList* varlist = functionType -> function -> varList;
+    // if (checkList(varlist)) {}
+    type = type -> function -> returnType;
 }
 | ID LP Args error {
     yyerror(" Missing closing parenthesis ')'");
@@ -609,7 +619,7 @@ void initStruct(char* name){
     structureType = (Type*) malloc(sizeof(Type));
     structureType -> name = name;
     structureType -> category = STRUCTURE;
-    structureType -> structure = (TypeTable*) malloc(sizeof(TypeTable));
+    structureType -> structure = (TypeList*) malloc(sizeof(TypeList));
 }
 
 void initArray(int size){
@@ -703,6 +713,10 @@ Type* get(char* name) {
         }
     }
     return NULL;
+}
+
+bool equal(Type* type1, Type* type2) {
+    return type1 -> category == type2 -> category;
 }
 
 void printAllTable() {

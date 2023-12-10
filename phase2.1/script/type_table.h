@@ -10,8 +10,8 @@ typedef struct Type {
     enum {INT, FLOATE, CHAR, ARRAY, STRUCTURE, FUNCTION, STRING} category;
     union{
         struct Array* array;
-        // struct TypeList* structure;
-        struct TypeTable* structure;
+        struct TypeList* structure;
+        // struct TypeTable* structure;
         // struct Structure* structure;
         struct Function* function;
         char* string;
