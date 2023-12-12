@@ -110,14 +110,14 @@ ExtDef : Specifier ExtDecList SEMI {
 ;
 ExtDecList : VarDec {
     $$ = createNode("ExtDecList", "", $1->line, 1, $1);
-    insert();
+    insertRecreate();
     clearArray();
 }
 |
 // modified: can't handle VarDec COMMA ExtDecList, changed to:
     ExtDecList COMMA VarDec{
     $$ = createNode("ExtDecList", "", $1->line, 3, $1, createNode("COMMA", "", $2, 0), $3);
-    insert();
+    insertRecreate();
     clearArray();
 }
 ;
@@ -721,6 +721,7 @@ bool equal(Type* type1, Type* type2) {
 
 void printAllTable() {
     for (int i = 0; i <= scopeDepth; i++){
+        my_print("Type table: %d\n",i);
         printTable(scopeStack[i]);
     }
 }
