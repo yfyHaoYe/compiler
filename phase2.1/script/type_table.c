@@ -1,7 +1,9 @@
 #include "type_table.h"
 #include <stdlib.h>
-#include<stdio.h>
-#include<stdbool.h>
+#include <stdio.h>
+#include <stdbool.h>
+
+#include "my_print.c"
 
 unsigned int hashFunction(char* name){
     unsigned int hash = 0;
@@ -20,13 +22,16 @@ HashNode* createHashNode(Type* type){
     return node;
 }
 
-bool insertIntoTypeTable(TypeTable* typeTable, Type* type){
+bool insertIntoTypeTable(TypeTable* typeTable, Type* type, int line){
     unsigned int hash = hashFunction(type -> name);
     HashNode* node = createHashNode(type);
     if (!typeTable -> isFilled[hash]) {
         typeTable -> isFilled[hash] = 1;
         typeTable -> buckets[hash] = node;
+        my_print(INFO, "info line %d: success inserted! name: %s, category: %s\n", line, type -> name, categoryToString(type -> category));
         return true;
+    }else{
+        my_print(ERROR, "redeclaring\n");
     }
 
     HashNode* currentNode = typeTable -> buckets[hash];
@@ -40,6 +45,7 @@ bool insertIntoTypeTable(TypeTable* typeTable, Type* type){
 }
 
 bool contain(TypeTable* typeTable, char* name){
+    my_print(INFO, "why?\n");
     unsigned int hash = hashFunction(name);
     if(!typeTable -> isFilled[hash]){
         return false;
@@ -107,7 +113,7 @@ Type* getType(TypeTable* typeTable, char* name) {
 }
 
 void printTable(TypeTable* typeTable){
-    for (int i=0; i < TABLE_SIZE; i++){
+    for (int i = 0; i < TABLE_SIZE; i++){
         if (!typeTable -> isFilled[i]){
             continue;
         }
@@ -117,67 +123,98 @@ void printTable(TypeTable* typeTable){
             node = node -> next;
         }
     }
+    printf("\n");
 }
 
 void printType(Type* type){
-    char* category;
-    if (type -> category == INT) {
-        category = "int";
-    }
-    else if (type -> category == FLOATE) {
-        category = "float";
-    }
-    else if (type -> category == CHAR) {
-        category = "char";
-    }
-    else if (type -> category == ARRAY) {
-        category = "array";
-    }
-    else if (type -> category == STRUCTURE) {
-        category = "structure";
-    }
-    else if (type -> category == FUNCTION) {
-        category = "function";
-    }
-    printf("Type name: %s, category: %s\n", type -> name, category);
+    char* categoryName = categoryToString(type -> category);
+    printf("Type name: %s, category: %s\n", type -> name, categoryName);
 }
 
-void freeTypeTable(TypeTable* typeTable) {
+char* categoryToString(Category category) {
+    if (category == INT) {
+        return "int";
+    }
+    else if (category == FLOATNUM) {
+        return "float";
+    }
+    else if (category == CHAR) {
+        return "char";
+    }
+    else if (category == ARRAY) {
+        return "array";
+    }
+    else if (category == STRUCTURE) {
+        return "structure";
+    }
+    else if (category == FUNCTION) {
+        return "function";
+    }
+    else if (category == STRING) {
+        return "string";
+    }
+    return NULL;
+}
+
+
+Category stringToCategory(char* string){
+    if (strcmp(string, "int") == 0) {
+        return INT;
+    }
+    if (strcmp(string, "float") == 0) {
+        return FLOATNUM;
+    }
+    if (strcmp(string, "char") == 0) {
+        return CHAR;
+    }
+    if (strcmp(string, "string") == 0) {
+        return STRING;
+    }
+    if (strcmp(string, "bool") == 0) {
+        return BOOLEAN;
+    }
+    if (strcmp(string, "array") == 0) {
+        return ARRAY;
+    }
+    // struct and function
+    return 0;
+}
+
+void freeTypeTable(int line, TypeTable* typeTable) {
     for (int i = 0; i < TABLE_SIZE; i++) {
         HashNode* currentNode = typeTable -> buckets[i];
         while (currentNode != NULL) {
             HashNode* nextNode = currentNode -> next;
-            freeType(currentNode -> type);
+            freeType(line, currentNode -> type);
             free(currentNode);
             currentNode = nextNode;
         }
     }
 }
 
-void freeType(Type* type){
+void freeType(int line, Type* type){
     if (type -> category == ARRAY){
-        freeType(type -> array -> base);
+        freeType(line, type -> array -> base);
         free(type -> array);
     }
     else if (type -> category == STRUCTURE){
-        freeTypeList(type -> structure);
+        freeTypeList(line, type -> structure);
     }
     else if (type -> category == FUNCTION){
-        freeFunction(type -> function);
-    } else {
-        printf("Type category is null, name:%s\n, find in freeType", type -> name);
+        freeFunction(line, type -> function);
+    } else if (type -> category == 0){
+        my_print(WARNING, "warning line %d: Type category is null, name:%s\n", line, type -> name);
     }
     free(type);
 }
 
-void freeTypeList(TypeList* typeList){
-    freeType(typeList -> type);
-    freeTypeList(typeList -> next);
+void freeTypeList(int line, TypeList* typeList){
+    freeType(line, typeList -> type);
+    freeTypeList(line, typeList -> next);
     free(typeList);
 }
 
-void freeFunction(Function* function){
-    freeType(function -> returnType);
-    freeTypeList(function -> varList);
+void freeFunction(int line, Function* function){
+    freeTypeList(line, function -> varList);
     free(function);
 }

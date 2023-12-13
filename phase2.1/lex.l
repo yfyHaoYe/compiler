@@ -77,7 +77,7 @@ int|float|char|string {yylval.str_line.string = strdup(yytext);yylval.str_line.l
         yylval.str_line.line = line;
         return HEXINT;
     } else {
-        my_print("Error type A at Line %d: Integer length exceed limit 32 \'%s\'\n", line, yytext); 
+        my_print(PHASE1, "Error type A at Line %d: Integer length exceed limit 32 \'%s\'\n", PHASE1, line, yytext); 
         error = true;
         return STR;
     }
@@ -88,19 +88,18 @@ int|float|char|string {yylval.str_line.string = strdup(yytext);yylval.str_line.l
         yylval.str_line.line = line;
         return DECINT;
     } else {
-        my_print("Error type A at Line %d: Integer length exceed limit 32 \'%s\'\n", line, yytext);
+        my_print(PHASE1, "Error type A at Line %d: Integer length exceed limit 32 \'%s\'\n", PHASE1, line, yytext);
         error = true;
         return STR;
     }
 }
 '[^']{1}' {yylval.str_line.string = strdup(yytext);yylval.str_line.line = line; return PCHAR;}
 '\\(x|X){hex_digit}{1,2}\' {yylval.str_line.string = strdup(yytext);yylval.str_line.line = line; return HEXCHAR;} 
-' { my_print("Error type A at Line %d: Missing single quotation '\n", line); }
-\" { my_print("Error type A at Line %d: Missing double quotation \" \n", line); }
+' { my_print(PHASE1, "Error type A at Line %d: Missing single quotation '\n", PHASE1, line); }
+\" { my_print(PHASE1, "Error type A at Line %d: Missing double quotation \" \n", PHASE1, line); }
 (({digitno0}{digit}*)|0){DOT}{digit}+ {yylval.str_line.string = strdup(yytext);yylval.str_line.line = line; return FLOAT;}
 {letter_}({letter_}|{digit})* {yylval.str_line.string = strdup(yytext);yylval.str_line.line = line; return ID;}
-({letter_}|{digit})+{letter_}+ {my_print("Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext);
-                                    fprintf(output_file, "Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext); error = true; return ID;}
+({letter_}|{digit})+{letter_}+ {my_print(PHASE1, "Error type A at Line %d: Unknown characters \'%s\'\n", PHASE1, line, yytext); error = true; return ID;}
 \"[^\"]*\" {
     if(yytext[yyleng-2] == '\\') {
         yyless(yyleng-1);
@@ -111,13 +110,13 @@ int|float|char|string {yylval.str_line.string = strdup(yytext);yylval.str_line.l
         return STR;
     }
 }
-0(x|X)({letter}|{digit})+ {my_print("Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext); error = true; return STR;}
-"&"|"|" {my_print("Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext); error = true;return AND;}
-[^\'\"\\] {my_print("Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext); error = true; return STR;}
-'\\x{hex_digit}{3,}' {my_print("Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext); error = true; return HEXCHAR;}
-'\\x[^{hex_digit}]+' {my_print("Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext); error = true; return STR;}
-'[^']{2,}' {my_print("Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext); error = true; return PCHAR;}
-{digit}+{DOT}{digit}+ {my_print("Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext); error = true; return FLOAT;}
-{digit}+ {my_print("Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext); error = true; return DECINT;}
-. { my_print("Error type A at Line %d: Unknown characters \'%s\'\n", line, yytext); error = true; return STR; }
+0(x|X)({letter}|{digit})+ {my_print(PHASE1, "Error type A at Line %d: Unknown characters \'%s\'\n", PHASE1, line, yytext); error = true; return STR;}
+"&"|"|" {my_print(PHASE1, "Error type A at Line %d: Unknown characters \'%s\'\n", PHASE1, line, yytext); error = true;return AND;}
+[^\'\"\\] {my_print(PHASE1, "Error type A at Line %d: Unknown characters \'%s\'\n", PHASE1, line, yytext); error = true; return STR;}
+'\\x{hex_digit}{3,}' {my_print(PHASE1, "Error type A at Line %d: Unknown characters \'%s\'\n", PHASE1, line, yytext); error = true; return HEXCHAR;}
+'\\x[^{hex_digit}]+' {my_print(PHASE1, "Error type A at Line %d: Unknown characters \'%s\'\n", PHASE1, line, yytext); error = true; return STR;}
+'[^']{2,}' {my_print(PHASE1, "Error type A at Line %d: Unknown characters \'%s\'\n", PHASE1, line, yytext); error = true; return PCHAR;}
+{digit}+{DOT}{digit}+ {my_print(PHASE1, "Error type A at Line %d: Unknown characters \'%s\'\n", PHASE1, line, yytext); error = true; return FLOAT;}
+{digit}+ {my_print(PHASE1, "Error type A at Line %d: Unknown characters \'%s\'\n", PHASE1, line, yytext); error = true; return DECINT;}
+. { my_print(PHASE1, "Error type A at Line %d: Unknown characters \'%s\'\n", PHASE1, line, yytext); error = true; return STR; }
 %%

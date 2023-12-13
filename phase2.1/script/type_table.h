@@ -5,9 +5,21 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
+
+typedef enum Category{
+    INT = 1,
+    FLOATNUM,
+    CHAR,
+    ARRAY,
+    STRUCTURE,
+    FUNCTION,
+    STRING,
+    BOOLEAN
+} Category;
+
 typedef struct Type {
     char* name;
-    enum {INT, FLOATE, CHAR, ARRAY, STRUCTURE, FUNCTION, STRING} category;
+    Category category;
     union{
         struct Array* array;
         struct TypeList* structure;
@@ -18,9 +30,10 @@ typedef struct Type {
     };
 }Type;
 
+
 typedef struct Function{
     int paramNum;
-    struct Type* returnType;
+    Category returnCategory;
     struct TypeList* varList;
 } Function;
 
@@ -64,7 +77,7 @@ unsigned int hashFunction(char* name);
 
 HashNode* createHashNode(Type* type);
 
-bool insertIntoTypeTable(TypeTable* typeTable, Type* type);
+bool insertIntoTypeTable(TypeTable* typeTable, Type* type, int line);
 
 Type* getType(TypeTable* typeTable, char* name);
 
@@ -72,13 +85,15 @@ void printTable(TypeTable* typeTable);
 
 void printType(Type* type);
 
-void freeTypeTable(TypeTable* typeTable);
+char* categoryToString(Category category);
 
-void freeType(Type* type);
+void freeTypeTable(int line, TypeTable* typeTable);
 
-void freeTypeList(TypeList* typeList);
+void freeType(int line, Type* type);
 
-void freeFunction(Function* function);
+void freeTypeList(int line, TypeList* typeList);
+
+void freeFunction(int line, Function* function);
 
 bool checkTypeSame(Type* type1, Type* type2);
 
