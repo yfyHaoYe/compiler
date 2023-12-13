@@ -1,0 +1,15 @@
+//scope
+int a;
+int weight;
+struct Student{
+  float weight;
+};
+int test_2_r13()
+{
+  struct Student s;
+  float a;
+  int b;
+  a = s.weight;
+  a = b;
+  return 0;
+}

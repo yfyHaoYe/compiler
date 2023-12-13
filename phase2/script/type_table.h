@@ -8,13 +8,21 @@
 typedef struct Type {
     char name[32];
     int init;
-    enum {PRIMITIVE, ARRAY, STRUCTURE} category;
+    enum {PRIMITIVE, ARRAY, STRUCTURE, FUNCTION} category;
     union{
         enum {INT, FLOAT, CHAR} primitive;
         struct Array *array;
         struct FieldList *structure;
+        struct Function *function;
     };
 }Type;
+
+typedef struct Function{
+    char* name;
+    Type* returnType;
+    int paramNum;
+    struct FieldList* varList;
+} Function;
 
 typedef struct Array {
     struct Type *base;
@@ -52,5 +60,7 @@ void freeTypeTable(TypeTable* typeTable);
 bool isContains(TypeTable* typeTable, char* name);
 
 int checkType(Type* type1, Type* type2);
+
+int checkStructure(FieldList* fieldList1, FieldList* fieldList2);
 #endif
 
