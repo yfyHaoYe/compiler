@@ -29,8 +29,6 @@ bool insertIntoTypeTable(TypeTable* typeTable, Type* type, int line){
         typeTable -> buckets[hash] = node;
         printf("info line %d: success inserted! %s %s\n", line, categoryToString(type -> category), type -> name);
         return true;
-    }else{
-        printf("redeclaring\n");
     }
 
     HashNode* currentNode = typeTable -> buckets[hash];
@@ -48,7 +46,6 @@ bool contain(TypeTable* typeTable, char* name){
     if(!typeTable -> isFilled[hash]){
         return false;
     }
-
     HashNode* currentNode = typeTable -> buckets[hash];
     while(currentNode != NULL){
         if (strcmp(currentNode -> type -> name, name) == 0) {
@@ -72,7 +69,7 @@ bool checkTypeSame(Type* type1, Type* type2){
     }
     
     if (type1 -> category == STRUCTURE){
-        return checkStructureSame(type1 -> structure, type2 -> structure);
+        return checkStructureSame(type1 -> structure -> typeList, type2 -> structure -> typeList);
     }
 
     if (type1 -> category == FUNCTION){
@@ -110,6 +107,17 @@ Type* getType(TypeTable* typeTable, char* name) {
     return NULL;
 }
 
+Category structureFind(TypeList* typeList, char* name) {
+    printf("info finding %s in typelist\n", name);
+    while (typeList != NULL && strcmp(typeList -> type -> name, name)!=0){
+        typeList = typeList -> next;
+    }
+    if(typeList == NULL){
+        return NUL;
+    }
+    return typeList -> type -> category;
+}
+
 void printTable(TypeTable* typeTable){
     for (int i = 0; i < TABLE_SIZE; i++){
         if (!typeTable -> isFilled[i]){
@@ -127,6 +135,18 @@ void printTable(TypeTable* typeTable){
 void printType(Type* type){
     char* categoryName = categoryToString(type -> category);
     printf("Type name: %s, category: %s\n", type -> name, categoryName);
+    if(type -> category == FUNCTION){
+        printCategoryList(type -> function -> varList);
+    }
+}
+
+void printCategoryList(CategoryList* categoryList) {
+    while (categoryList != NULL)
+    {
+        printf("param: %s\n", categoryToString(categoryList->category));
+        categoryList = categoryList -> next;
+    }
+    
 }
 
 char* categoryToString(Category category) {
@@ -151,6 +171,11 @@ char* categoryToString(Category category) {
     else if (category == STRING) {
         return "string";
     }
+    else if (category == NUL)
+    {
+        return "NULL";
+    }
+    
     return NULL;
 }
 
@@ -193,25 +218,31 @@ void freeTypeTable(int line, TypeTable* typeTable) {
 void freeType(int line, Type* type){
     if (type != NULL){
         if (type -> category == ARRAY){
-        freeType(line, type -> array -> base);
-        free(type -> array);
+            freeType(line, type -> array -> base);
+            free(type -> array);
+        }else if (type -> category == STRUCTURE){
+            if(type -> structure != NULL){
+                freeTypeList(line, type -> structure -> typeList);
+            }
+        }
+        else if (type -> category == FUNCTION){
+            freeFunction(line, type -> function);
+        } else if (type -> category == NUL){
+            printf("warning line %d: Type category is null, name: %s\n", line, type -> name);
+        }
+        free(type);
     }
-    else if (type -> category == STRUCTURE){
-        freeTypeList(line, type -> structure);
-    }
-    else if (type -> category == FUNCTION){
-        freeFunction(line, type -> function);
-    } else if (type -> category == 0){
-        printf("warning line %d: Type category is null, name:%s\n", line, type -> name);
-    }
-    free(type);
+}
+
+void freeCategoryList(int line, CategoryList* categoryList){
+    if (categoryList != NULL) {
+        freeCategoryList(line, categoryList -> next);
+        free(categoryList);
     }
 }
 
 void freeTypeList(int line, TypeList* typeList){
-        
     if (typeList != NULL) {
-        freeType(line, typeList -> type);
         freeTypeList(line, typeList -> next);
         free(typeList);
     }
@@ -219,7 +250,7 @@ void freeTypeList(int line, TypeList* typeList){
 
 void freeFunction(int line, Function* function){
     if (function != NULL) {
-        freeTypeList(line, function -> varList);
+        freeCategoryList(line, function -> varList);
         free(function);
     }
 }

@@ -14,7 +14,8 @@ typedef enum Category{
     STRUCTURE,
     FUNCTION,
     STRING,
-    BOOLEAN
+    BOOLEAN,
+    NUL
 } Category;
 
 typedef struct Type {
@@ -22,7 +23,7 @@ typedef struct Type {
     Category category;
     union{
         struct Array* array;
-        struct TypeList* structure;
+        struct Structure* structure;
         // struct TypeTable* structure;
         // struct Structure* structure;
         struct Function* function;
@@ -30,11 +31,24 @@ typedef struct Type {
     };
 }Type;
 
+typedef struct TypeList {
+    struct Type* type;
+    struct TypeList* next;
+} TypeList;
+
+typedef struct Structure{
+    char* name;
+    TypeList* typeList;
+} Structure;
 
 typedef struct Function{
     int paramNum;
-    Category returnCategory;
-    struct TypeList* varList;
+    bool returnStruct;
+    union {
+        Category returnCategory;
+        Structure* returnStructure;
+    };
+    struct CategoryList* varList;
 } Function;
 
 typedef struct Array {
@@ -42,10 +56,12 @@ typedef struct Array {
     int size;
 }Array;
 
-typedef struct TypeList {
-    struct Type* type;
-    struct TypeList* next;
-} TypeList;
+
+typedef struct CategoryList
+{
+    Category category;
+    struct CategoryList* next;
+} CategoryList;
 
 typedef struct HashNode {
     struct Type* type;
@@ -62,16 +78,6 @@ typedef struct PriorityQueue{
     // ...
 } PriorityQueue;
 
-typedef struct Structure{
-    char* name;
-    int intNum;
-    int floatNum;
-    int charNum;
-    int stringNum;
-    struct PriorityQueue* arrays;
-    struct PriorityQueue* structures;
-} Structure;
-
 
 unsigned int hashFunction(char* name);
 
@@ -81,15 +87,21 @@ bool insertIntoTypeTable(TypeTable* typeTable, Type* type, int line);
 
 Type* getType(TypeTable* typeTable, char* name);
 
+Category structureFind(TypeList* typeList, char* name);
+
 void printTable(TypeTable* typeTable);
 
 void printType(Type* type);
+
+void printCategoryList(CategoryList* categoryList);
 
 char* categoryToString(Category category);
 
 void freeTypeTable(int line, TypeTable* typeTable);
 
 void freeType(int line, Type* type);
+
+void freeCategoryList(int line, CategoryList* CategoryList);
 
 void freeTypeList(int line, TypeList* typeList);
 
