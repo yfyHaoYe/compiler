@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-#include "my_print.c"
 
 unsigned int hashFunction(char* name){
     unsigned int hash = 0;
@@ -28,10 +27,10 @@ bool insertIntoTypeTable(TypeTable* typeTable, Type* type, int line){
     if (!typeTable -> isFilled[hash]) {
         typeTable -> isFilled[hash] = 1;
         typeTable -> buckets[hash] = node;
-        my_print(INFO, "info line %d: success inserted! name: %s, category: %s\n", line, type -> name, categoryToString(type -> category));
+        printf("info line %d: success inserted! %s %s\n", line, categoryToString(type -> category), type -> name);
         return true;
     }else{
-        my_print(ERROR, "redeclaring\n");
+        printf("redeclaring\n");
     }
 
     HashNode* currentNode = typeTable -> buckets[hash];
@@ -45,7 +44,6 @@ bool insertIntoTypeTable(TypeTable* typeTable, Type* type, int line){
 }
 
 bool contain(TypeTable* typeTable, char* name){
-    my_print(INFO, "why?\n");
     unsigned int hash = hashFunction(name);
     if(!typeTable -> isFilled[hash]){
         return false;
@@ -193,7 +191,8 @@ void freeTypeTable(int line, TypeTable* typeTable) {
 }
 
 void freeType(int line, Type* type){
-    if (type -> category == ARRAY){
+    if (type != NULL){
+        if (type -> category == ARRAY){
         freeType(line, type -> array -> base);
         free(type -> array);
     }
@@ -203,18 +202,24 @@ void freeType(int line, Type* type){
     else if (type -> category == FUNCTION){
         freeFunction(line, type -> function);
     } else if (type -> category == 0){
-        my_print(WARNING, "warning line %d: Type category is null, name:%s\n", line, type -> name);
+        printf("warning line %d: Type category is null, name:%s\n", line, type -> name);
     }
     free(type);
+    }
 }
 
 void freeTypeList(int line, TypeList* typeList){
-    freeType(line, typeList -> type);
-    freeTypeList(line, typeList -> next);
-    free(typeList);
+        
+    if (typeList != NULL) {
+        freeType(line, typeList -> type);
+        freeTypeList(line, typeList -> next);
+        free(typeList);
+    }
 }
 
 void freeFunction(int line, Function* function){
-    freeTypeList(line, function -> varList);
-    free(function);
+    if (function != NULL) {
+        freeTypeList(line, function -> varList);
+        free(function);
+    }
 }
