@@ -19,7 +19,7 @@ typedef enum Category{
 } Category;
 
 typedef struct Type {
-    char* name;
+    char name[50];
     Category category;
     union{
         struct Array* array;
@@ -27,7 +27,7 @@ typedef struct Type {
         // struct TypeTable* structure;
         // struct Structure* structure;
         struct Function* function;
-        char* string;
+        char string[50];
     };
 }Type;
 
@@ -37,17 +37,14 @@ typedef struct TypeList {
 } TypeList;
 
 typedef struct Structure{
-    char* name;
+    char name[50];
     TypeList* typeList;
 } Structure;
 
 typedef struct Function{
     int paramNum;
     bool returnStruct;
-    union {
-        Category returnCategory;
-        Structure* returnStructure;
-    };
+    Category returnCategory;
     struct CategoryList* varList;
 } Function;
 
@@ -79,15 +76,15 @@ typedef struct PriorityQueue{
 } PriorityQueue;
 
 
-unsigned int hashFunction(char* name);
+unsigned int hashFunction(char name[50]);
 
 HashNode* createHashNode(Type* type);
 
-bool insertIntoTypeTable(TypeTable* typeTable, Type* type, int line);
+void insertIntoTypeTable(TypeTable* typeTable, Type* type);
 
-Type* getType(TypeTable* typeTable, char* name);
+Type* getType(TypeTable* typeTable, char name[50]);
 
-Category structureFind(TypeList* typeList, char* name);
+Category structureFind(TypeList* typeList, char name[50]);
 
 void printTable(TypeTable* typeTable);
 
@@ -97,15 +94,15 @@ void printCategoryList(CategoryList* categoryList);
 
 char* categoryToString(Category category);
 
-void freeTypeTable(int line, TypeTable* typeTable);
+void freeTypeTable(TypeTable* typeTable);
 
-void freeType(int line, Type* type);
+void freeType(Type* type);
 
-void freeCategoryList(int line, CategoryList* CategoryList);
+void freeCategoryList(CategoryList* CategoryList);
 
-void freeTypeList(int line, TypeList* typeList);
+void freeTypeList(TypeList* typeList);
 
-void freeFunction(int line, Function* function);
+void freeFunction(Function* function);
 
 bool checkTypeSame(Type* type1, Type* type2);
 
