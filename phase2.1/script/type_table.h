@@ -21,13 +21,14 @@ typedef enum Category{
 typedef struct Type {
     char name[50];
     Category category;
+    bool init;
     union{
         struct Array* array;
         struct Structure* structure;
         // struct TypeTable* structure;
         // struct Structure* structure;
         struct Function* function;
-        char string[50];
+        // char string[50];
     };
 }Type;
 
@@ -43,7 +44,6 @@ typedef struct Structure{
 
 typedef struct Function{
     int paramNum;
-    bool returnStruct;
     Category returnCategory;
     struct CategoryList* varList;
 } Function;
@@ -75,6 +75,10 @@ typedef struct PriorityQueue{
     // ...
 } PriorityQueue;
 
+typedef struct Expression{
+    Category category;
+    bool lvalue;
+} Expression;
 
 unsigned int hashFunction(char name[50]);
 

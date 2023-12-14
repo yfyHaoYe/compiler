@@ -107,7 +107,7 @@ Type* getType(TypeTable* typeTable, char* name) {
 
 Category structureFind(TypeList* typeList, char* name) {
     printf("info finding %s in typelist\n", name);
-    while (typeList != NULL && strcmp(typeList -> type -> name, name)!=0){
+    while (typeList != NULL && strcmp(typeList -> type -> name, name) != 0){
         typeList = typeList -> next;
     }
     if(typeList == NULL){
@@ -222,11 +222,11 @@ void freeType(Type* type){
             freeType(type -> array -> base);
             free(type -> array);
         }else if (type -> category == STRUCTURE){
-            if (type -> structure != NULL && type -> structure -> name == NULL) {
+            if (type -> structure != NULL && strcpy(type -> structure -> name, "default") == 0) {
                 freeTypeList(type -> structure -> typeList);
             }
-        }
-        else if (type -> category == FUNCTION){
+            return;
+        } else if (type -> category == FUNCTION){
             freeFunction(type -> function);
         } else if (type -> category == NUL){
             printf("warning: Type category is null, name: %s\n", type -> name);
