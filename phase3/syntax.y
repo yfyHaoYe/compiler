@@ -315,24 +315,19 @@ Stmt : Exp SEMI {
         printf("Error type 8 at Line %d: incompatiable return type, except: %s, got: %s\n", line, categoryToString(expected), categoryToString(find));
     }
     printf("info line %d: returning %s\n", $1, categoryToString(find));
+
 }
 | IF LP Exp RP Stmt %prec LOWER {
     $$ = createNode("Stmt", "", $1, 5, createNode("IF", "", $1, 0), createNode("LP", "", $2, 0), $3, createNode("RP", "", $4, 0), $5);
-    if (popExp() -> category!= BOOLEAN){
-        printf("error line %d: not bool\n", line);
-    }
+    popExp();
 }
 | IF LP Exp RP Stmt ELSE Stmt {
     $$ = createNode("Stmt", "", $1, 7, createNode("IF", "", $1, 0), createNode("LP", "", $2, 0), $3, createNode("RP", "", $4, 0), $5, createNode("ELSE", "", $6, 0), $7);
-    if (popExp() -> category!= BOOLEAN){
-        printf("error line %d: not bool\n", line);
-    }
+    popExp();
 }
 | WHILE LP Exp RP Stmt {
     $$ = createNode("Stmt", "", $1, 5, createNode("WHILE", "", $1, 0), createNode("LP", "", $2, 0), $3, createNode("RP", "", $4, 0), $5);
-    if (popExp() -> category!= BOOLEAN){
-        printf("error line %d: not bool\n", line);
-    }
+    popExp();
 }
 | Exp error {
     yyerror(" Missing semicolon ';'");
@@ -494,9 +489,6 @@ Exp : Exp ASSIGN Exp {
     $$ = createNode("Exp", "", $1, 2, createNode("NOT", "", $1, 0), $2);
     Category exp = popExp() -> category;
     printf("info line %d: not %s \n", line, categoryToString(exp));
-    if (exp != BOOLEAN){
-        printf("Error type 7 at Line %d: binary operation on non-bool variables\n", line);
-    }
     pushExp(BOOLEAN, false);
 }
 | Exp LB Exp RB {
@@ -995,12 +987,13 @@ void init(Category category) {
     type -> structure = NULL;
     tCnt++;
     sprintf(type -> registerName, "t%d", tCnt++);
-    if (category == ARRAY) {
-        printf("warning line %d: initing an array\n", line);
-        type -> array = (Array*)malloc(sizeof(Array));
-        type -> array -> base = NULL;
-        type -> array -> size = 0;
+    if (category != ARRAY) {
+        return;
     }
+    printf("warning line %d: initing an array\n", line);
+    type -> array = (Array*)malloc(sizeof(Array));
+    type -> array -> base = NULL;
+    type -> array -> size = 0;    
 }
 
 void initFunction(char* name) {
@@ -1101,7 +1094,6 @@ void insertStruct(){
 
 void clear(){
     printf("info line %d: clearing type, %s %s\n", line, categoryToString(type -> category), type -> name);
-    // free(type);
     freeType(type);
     type = NULL;
 }
@@ -1200,19 +1192,9 @@ Category intOperate(char* op) {
 }
 
 void boolOperate(char* op) {
-    Category push = NUL;
     Category exp1 = popExp() -> category, exp2 = popExp() -> category;
     printf("info line %d: %s %s %s \n", line, categoryToString(exp1), op, categoryToString(exp2));
-    if (exp1 != BOOLEAN){
-        printf("Error type 7 at Line %d: unmatching operands\n", line);
-    }
-    if (exp2 != BOOLEAN){
-        printf("Error type 7 at Line %d: unmatching operands\n", line);
-    }
-    if (exp1 == BOOLEAN && exp2 == BOOLEAN) {
-        push = exp1;
-    }
-    pushExp(push, false);
+    pushExp(BOOLEAN, false);
 }
 
 void handleFunction(char* name){
@@ -1232,7 +1214,7 @@ void handleFunction(char* name){
     int paramNum2 = functionType2 -> function -> paramNum;
     CategoryList* varList2 = functionType2 -> function -> varList;
     if (paramNum1 != paramNum2) {
-        printf("Error type 9 at Line %d: invalid argument number, except %d, got %d\n", line, paramNum1, paramNum2);
+        printf("Error type 9 at Line %d: invalid argument number, except %d, got %d\n", line, paramNum2, paramNum1);
         return;
     }
     while (varList1 != NULL && varList2 != NULL){
@@ -1295,6 +1277,22 @@ int main(int argc, char **argv){
         perror(argv[1]);
         return EXIT_FAIL;
     }
+
+    init(INT);
+    initFunction("read");
+    insertFunction();
+    clear();
+    functionType = NULL;
+
+    init(NUL);
+    initFunction("write");
+    functionType -> function -> paramNum = 1;
+    functionType -> function -> varList = (CategoryList*)malloc(sizeof(CategoryList));
+    functionType -> function -> varList -> category = INT;
+    functionType -> function -> varList -> next = NULL;
+    insertFunction();
+    clear();
+    functionType = NULL;
 
     yyparse();
     fclose(output_file);

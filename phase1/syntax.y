@@ -70,7 +70,8 @@ Program : ExtDefList {
         perror("Unable to open output file");
         exit(1);
     }
-    if(!error){printParseTree($$, 0);}
+    //if(!error){}
+    printParseTree($$, 0);
 }
 ;
 ExtDefList : ExtDef ExtDefList {
