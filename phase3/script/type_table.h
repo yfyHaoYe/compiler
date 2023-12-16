@@ -21,7 +21,6 @@ typedef enum Category{
 typedef struct Type {
     char name[50];
     Category category;
-    bool init;
     char registerName[10];
     union{
         struct Array* array;

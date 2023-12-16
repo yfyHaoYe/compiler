@@ -27,7 +27,6 @@
     Expression* expStack[MAX_DEPTH];
     int expDepth;
     // type: 在创建任意一个type时都创建在这里，在insert后置NULL
-    // TODO: ARRAY处理
     Type* type;
     // functionType: 在创建函数时创建在这里，通过insertFunction插入，随后置NULL
     Type* functionType;
@@ -87,6 +86,7 @@
     void translate_Exp_MINUS(TreeNode*, const char*);
     void translate_Exp_cond(TreeNode*, const char*);
     void translate_Exp_Args(TreeNode*, const char*);
+    void translate_Exp_Func(TreeNode* Exp, const char* place);
     void translate_cond_Exp(TreeNode* Exp, const char* lb_t, const char* lb_f);
     void translate_cond_Exp_EQ(TreeNode* Exp, const char* lb_t, const char* lb_f);
     void translate_cond_Exp_AND(TreeNode* Exp, const char* lb_t, const char* lb_f);
@@ -302,6 +302,8 @@ StmtList : Stmt StmtList {
 ;
 Stmt : Exp SEMI {
     $$ = createNode("Stmt", "", $1->line, 2, $1, createNode("SEMI", "", $2, 0));
+    const char* place = new_place();
+    translate_Exp($1, place);
     popExp();
 }
 | CompSt {
@@ -315,19 +317,22 @@ Stmt : Exp SEMI {
         printf("Error type 8 at Line %d: incompatiable return type, except: %s, got: %s\n", line, categoryToString(expected), categoryToString(find));
     }
     printf("info line %d: returning %s\n", $1, categoryToString(find));
-
+    translate_Stmt($$);
 }
 | IF LP Exp RP Stmt %prec LOWER {
     $$ = createNode("Stmt", "", $1, 5, createNode("IF", "", $1, 0), createNode("LP", "", $2, 0), $3, createNode("RP", "", $4, 0), $5);
     popExp();
+    translate_Stmt($$);
 }
 | IF LP Exp RP Stmt ELSE Stmt {
     $$ = createNode("Stmt", "", $1, 7, createNode("IF", "", $1, 0), createNode("LP", "", $2, 0), $3, createNode("RP", "", $4, 0), $5, createNode("ELSE", "", $6, 0), $7);
     popExp();
+    translate_Stmt($$);
 }
 | WHILE LP Exp RP Stmt {
     $$ = createNode("Stmt", "", $1, 5, createNode("WHILE", "", $1, 0), createNode("LP", "", $2, 0), $3, createNode("RP", "", $4, 0), $5);
     popExp();
+    translate_Stmt($$);
 }
 | Exp error {
     yyerror(" Missing semicolon ';'");
@@ -399,6 +404,8 @@ Dec : VarDec {
         printf("Error type 5 at Line %d: unmatching type on both sides of assignment, expected %s, got %s\n", line, categoryToString(type -> category), categoryToString(exp));
     }
     handleDec();
+    Type* cur = get($1->children[0]->value);
+    translate_Exp($3, cur->registerName);
 }
 ;
 
@@ -656,6 +663,8 @@ void translate_Exp(TreeNode* Exp, const char* place){
         translate_Exp_Args(Exp, place);
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[0]->type, "LP") == 0){
         translate_Exp(Exp->children[1], place);
+    }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "LP") == 0){
+        translate_Exp_Func(Exp, place);
     }
 }
 
@@ -703,13 +712,23 @@ void translate_Exp_cond(TreeNode* Exp, const char* place){
 }
 
 void translate_Exp_Args(TreeNode* Exp, const char* place){
-    //TODO: 找对应的function
     ListNode** arg_list = (ListNode**)malloc(sizeof(ListNode*));
     *arg_list = NULL;
     translate_Args(Exp->children[2], arg_list);
+    ListNode* current = *arg_list;
+    while(current != NULL){
+        fprintf(code_file,"ARG %s\n",current->arg);
+    }
+    char* name = Exp -> children[0] -> value;
+    printf("CALL %s\n", name);
+}
 
+void translate_Exp_Func(TreeNode* Exp, const char* place){
+    char* name = Exp -> children[0] -> value;
+    printf("CALL %s\n", name);
 }
 //TODO：定义语句
+
 
 //modified: translate condition expression
 void translate_cond_Exp(TreeNode* Exp, const char* lb_t, const char* lb_f){
@@ -980,7 +999,7 @@ void init(Category category) {
     type -> category = category;
     strcpy(type -> name, "default\0");
     type -> structure = NULL;
-    tCnt++;
+    //TODO
     sprintf(type -> registerName, "t%d", tCnt++);
     if (category != ARRAY) {
         return;
@@ -996,6 +1015,7 @@ void initFunction(char* name) {
     if (functionType != NULL){
         printf("warning line %d: function type isn't correctly clear! %s %s\n", line, categoryToString(functionType -> category), functionType-> name);
     }
+    fprintf(code_file, "FUNCTION %s :\n", name);
     functionType = (Type*)malloc(sizeof(Type));
     functionType -> category = FUNCTION;
     strcpy(functionType -> name, name);
@@ -1003,6 +1023,7 @@ void initFunction(char* name) {
     functionType -> function -> paramNum = 0;
     functionType -> function -> varList = NULL;
     functionType -> function -> returnCategory = type -> category;
+    tCnt--;
 }
 
 void initStruct(char* name){
@@ -1122,6 +1143,7 @@ void recreate() {
     strcpy(temp -> name, "default\0");
     type -> structure = NULL;
     type = temp;
+    sprintf(type -> registerName, "t%d", tCnt++);
 }
 
 void recreateStruct() {
