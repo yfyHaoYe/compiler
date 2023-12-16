@@ -81,15 +81,15 @@ typedef struct Expression{
     bool lvalue;
 } Expression;
 
-unsigned int hashFunction(char name[50]);
+unsigned int hashFunction(char* name);
 
 HashNode* createHashNode(Type* type);
 
 void insertIntoTypeTable(TypeTable* typeTable, Type* type);
 
-Type* getType(TypeTable* typeTable, char name[50]);
+Type* getType(TypeTable* typeTable, char* name);
 
-Category structureFind(TypeList* typeList, char name[50]);
+Category structureFind(TypeList* typeList, char* name);
 
 void printTable(TypeTable* typeTable);
 

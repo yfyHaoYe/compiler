@@ -656,10 +656,10 @@ void translate_Exp(TreeNode* Exp, const char* place){
         const char* tp = new_place();
         translate_Exp(Exp->children[2], tp);
         fprintf(code_file, "WRITE %s\n", tp);
-    }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "LP") == 0){
-
     }else if(Exp->numChildren == 4 && strcmp(Exp->children[2]->type, "Args") == 0){
         translate_Exp_Args(Exp, place);
+    }else if(Exp->numChildren == 3 && strcmp(Exp->children[0]->type, "LP") == 0){
+        translate_Exp(Exp->children[1], place);
     }
 }
 
@@ -713,7 +713,6 @@ void translate_Exp_Args(TreeNode* Exp, const char* place){
     translate_Args(Exp->children[2], arg_list);
 
 }
-//TODO: 括号指定优先级
 //TODO：定义语句
 
 //modified: translate condition expression
