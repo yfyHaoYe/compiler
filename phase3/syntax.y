@@ -73,8 +73,6 @@
 
     bool check(char* name);
     Type* get(char* name);
-    // TODO: WHAT IS THIS?
-    bool checkExp(Category category1, Category category2);
 
     void freeLastTable();
     void printAllTable();
@@ -182,9 +180,7 @@ ExtDecList : VarDec {
         recreate();
     }
 }
-|
-// modified: can't handle VarDec COMMA ExtDecList, changed to:
-    ExtDecList COMMA VarDec{
+| ExtDecList COMMA VarDec{
     $$ = createNode("ExtDecList", "", $1->line, 3, $1, createNode("COMMA", "", $2, 0), $3);
     if(definingStruct){
         insertStruct();

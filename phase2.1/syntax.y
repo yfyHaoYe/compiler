@@ -25,7 +25,7 @@
     Expression* expStack[MAX_DEPTH];
     int expDepth;
     // type: 在创建任意一个type时都创建在这里，在insert后置NULL
-    // TODO: ARRAY处理
+
     Type* type;
     // functionType: 在创建函数时创建在这里，通过insertFunction插入，随后置NULL
     Type* functionType;
@@ -68,8 +68,6 @@
 
     bool check(char* name);
     Type* get(char* name);
-    // TODO: WHAT IS THIS?
-    bool checkExp(Category category1, Category category2);
 
     void freeLastTable();
     void printAllTable();
@@ -155,9 +153,7 @@ ExtDecList : VarDec {
         recreate();
     }
 }
-|
-// modified: can't handle VarDec COMMA ExtDecList, changed to:
-    ExtDecList COMMA VarDec{
+| ExtDecList COMMA VarDec{
     $$ = createNode("ExtDecList", "", $1->line, 3, $1, createNode("COMMA", "", $2, 0), $3);
     if(definingStruct){
         insertStruct();
@@ -230,7 +226,6 @@ FunDec : FunID LP VarList RP {
     yyerror(" Missing closing parenthesis ')'");
 }
 ;
-// modified: add FunID
 FunID : ID {
     $$ = createNode("ID", $1.string, $1.line, 0);
     initFunction($1.string);
@@ -249,21 +244,19 @@ VarList : ParamDec COMMA VarList {
 }
 ;
 ParamDec : Specifier VarDec {
+    // modified
     $$ = createNode("ParamDec", "", $1->line, 2, $1, $2);
-    insert();
     if (functionType -> function -> varList == NULL){
         cateList = (CategoryList*)malloc(sizeof(CategoryList));
-        cateList -> next = NULL;
-        cateList -> category = NUL;
         functionType -> function -> varList = cateList;
     }else{
         cateList -> next = (CategoryList*)malloc(sizeof(CategoryList));
         cateList = cateList -> next;
-        cateList -> next = NULL;
-        cateList -> category = NUL;
     }
+    cateList -> next = NULL;
     cateList -> category = type -> category;
     functionType -> function -> paramNum++;
+    insert();
     setNull();
 }
 ;
