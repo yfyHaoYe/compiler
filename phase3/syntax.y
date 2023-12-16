@@ -405,7 +405,6 @@ Dec : VarDec {
 /* Expression */
 Exp : Exp ASSIGN Exp {
     $$ = createNode("Exp", "", $1->line, 3, $1, createNode("ASSIGN", "", $2, 0), $3);
-    
     Expression* exp1 = popExp();
     Expression* exp2 = popExp();
 
@@ -502,9 +501,6 @@ Exp : Exp ASSIGN Exp {
     }
     if (type -> category == ARRAY){
         type = type -> array -> base;
-        // if (type -> category == STRUCTURE){
-        //     structureType = type;
-        // }
     }
     pushExp(type -> category, true);
 }
@@ -545,7 +541,7 @@ Exp : Exp ASSIGN Exp {
             pushExp(result -> category, true);
         }
     } else {
-        // error: can't find id
+        // 
         printf("Error type 1 at Line %d: \"%s\" is used without a definition\n", line, $1.string);
         Type* temp = (Type*)malloc(sizeof(TYPE));
         strcpy(temp -> name, $1.string);
@@ -588,9 +584,9 @@ Exp : Exp ASSIGN Exp {
         }else {
             pushExp(functionType2 -> function -> returnCategory, false);
         }
-        if (functionType2 -> function -> returnCategory == STRUCTURE){
-            // structureType = NONONO!;
-        }
+        // if (functionType2 -> function -> returnCategory == STRUCTURE){
+        //     structureType = NONONO!;
+        // }
     } 
     
 }

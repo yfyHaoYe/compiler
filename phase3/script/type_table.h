@@ -77,8 +77,11 @@ typedef struct PriorityQueue{
 } PriorityQueue;
 
 typedef struct Expression{
-    Category category;
     bool lvalue;
+    union{
+        Category category;
+        Type* type;
+    };
 } Expression;
 
 unsigned int hashFunction(char* name);
