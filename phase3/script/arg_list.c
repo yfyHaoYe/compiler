@@ -1,6 +1,7 @@
 #include "arg_list.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 ListNode* createListNode(const char* arg) {
     ListNode* newListNode = (ListNode*)malloc(sizeof(ListNode));
     if (newListNode == NULL) {

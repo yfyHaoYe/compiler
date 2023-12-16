@@ -85,6 +85,24 @@
     void translate_Exp_INT(TreeNode*, const char*);
     void translate_Exp_ID(TreeNode*, const char*);
     void translate_Exp_ASSIGN(TreeNode*, const char*);
+    void translate_Exp_PLUS(TreeNode*, const char*);
+    void translate_Exp_MINUS(TreeNode*, const char*);
+    void translate_Exp_cond(TreeNode*, const char*);
+    void translate_Exp_Args(TreeNode*, const char*);
+    void translate_cond_Exp(TreeNode* Exp, const char* lb_t, const char* lb_f);
+    void translate_cond_Exp_EQ(TreeNode* Exp, const char* lb_t, const char* lb_f);
+    void translate_cond_Exp_AND(TreeNode* Exp, const char* lb_t, const char* lb_f);
+    void translate_cond_Exp_OR(TreeNode* Exp, const char* lb_t, const char* lb_f);
+    void translate_Stmt(TreeNode*);
+    void translate_Stmt_RETURN(TreeNode*);
+    void translate_Stmt_IF(TreeNode*);
+    void translate_Stmt_IFELSE(TreeNode* Stmt);
+    void translate_Stmt_WHILE(TreeNode*);
+    void translate_Args(TreeNode* Args, ListNode** arg_list);
+    void translate_Args_COMMA(TreeNode* Args, ListNode** arg_list);
+    const char* new_label();
+    const char* new_place();
+
 %}
 %union {
     struct {
@@ -688,7 +706,7 @@ void translate_Exp_PLUS(TreeNode* Exp, const char* place){
 void translate_Exp_MINUS(TreeNode* Exp, const char* place){
     const char* tp = new_place();
     translate_Exp(Exp->children[1], tp);
-    fprintf(code_file, "%s := #0 - %s", tp);
+    fprintf(code_file, "%s := #0 - %s", place, tp);
 }
 
 void translate_Exp_cond(TreeNode* Exp, const char* place){
@@ -702,7 +720,7 @@ void translate_Exp_cond(TreeNode* Exp, const char* place){
     fprintf(code_file, "LABEL %s :\n", lb2);
 }
 
-void translate_Exp_Args{
+void translate_Exp_Args(TreeNode* Exp, const char* place){
     //TODO: 找对应的function
     ListNode** arg_list = (ListNode**)malloc(sizeof(ListNode*));
     *arg_list = NULL;
@@ -820,7 +838,7 @@ void translate_Args_COMMA(TreeNode* Args, ListNode** arg_list){
     translate_Args(Args, arg_list);
 }
 
-const* char new_label(){
+const char* new_label(){
     char* label = (char*)malloc(sizeof(char) * 10);
     sprintf(label, "label%d", labelCnt++);
     return label;
@@ -980,7 +998,7 @@ void init(Category category) {
     type = (Type*) malloc(sizeof(Type));
     type -> category = category;
     strcpy(type -> name, "default\0");
-    type -> structure = NULL
+    type -> structure = NULL;
     tCnt++;
     sprintf(type -> registerName, "t%d", tCnt++);
     if (category == ARRAY) {
