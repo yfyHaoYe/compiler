@@ -150,6 +150,7 @@ void printCategoryList(CategoryList* categoryList) {
 }
 
 char* categoryToString(Category category) {
+    printf("%d\n", category);
     if (category == INT) {
         return "int";
     }
@@ -170,6 +171,9 @@ char* categoryToString(Category category) {
     }
     else if (category == STRING) {
         return "string";
+    }
+    else if (category == BOOLEAN) {
+        return "boolean";
     }
     else if (category == NUL)
     {

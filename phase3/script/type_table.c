@@ -171,6 +171,9 @@ char* categoryToString(Category category) {
     else if (category == STRING) {
         return "string";
     }
+    else if (category == BOOLEAN) {
+        return "boolean";
+    }
     else if (category == NUL)
     {
         return "NULL";

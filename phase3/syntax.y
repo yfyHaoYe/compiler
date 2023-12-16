@@ -77,7 +77,7 @@
     void freeLastTable();
     void printAllTable();
 
-    void intOperate(char* op);
+    Category intOperate(char* op);
     void boolOperate(char* op);
     void translate_Exp(TreeNode*, const char*);
     void translate_Exp_INT(TreeNode*, const char*);
@@ -273,20 +273,17 @@ VarList : ParamDec COMMA VarList {
 ;
 ParamDec : Specifier VarDec {
     $$ = createNode("ParamDec", "", $1->line, 2, $1, $2);
-    insert();
     if (functionType -> function -> varList == NULL){
         cateList = (CategoryList*)malloc(sizeof(CategoryList));
-        cateList -> next = NULL;
-        cateList -> category = NUL;
         functionType -> function -> varList = cateList;
     }else{
         cateList -> next = (CategoryList*)malloc(sizeof(CategoryList));
         cateList = cateList -> next;
-        cateList -> next = NULL;
-        cateList -> category = NUL;
     }
+    cateList -> next = NULL;
     cateList -> category = type -> category;
     functionType -> function -> paramNum++;
+    insert();
     setNull();
 }
 ;
@@ -318,10 +315,6 @@ Stmt : Exp SEMI {
         printf("Error type 8 at Line %d: incompatiable return type, except: %s, got: %s\n", line, categoryToString(expected), categoryToString(find));
     }
     printf("info line %d: returning %s\n", $1, categoryToString(find));
-    if (expDepth != 0){
-        printf("warning line %d: exp stack isn't clear correctly, left: %d\n", line, expDepth);
-        expDepth = 0;
-    }
 }
 | IF LP Exp RP Stmt %prec LOWER {
     $$ = createNode("Stmt", "", $1, 5, createNode("IF", "", $1, 0), createNode("LP", "", $2, 0), $3, createNode("RP", "", $4, 0), $5);
@@ -432,50 +425,58 @@ Exp : Exp ASSIGN Exp {
 | Exp AND Exp {
     $$ = createNode("Exp", "", $1->line, 3, $1, createNode("AND", "", $2, 0), $3);
     boolOperate("and");
+    pushExp(BOOLEAN, false);
 }
 | Exp OR Exp {
     $$ = createNode("Exp", "", $1->line, 3, $1, createNode("OR", "", $2, 0), $3);
     boolOperate("or");
+    pushExp(BOOLEAN, false);
 }
 | Exp LT Exp {
     $$ = createNode("Exp", "", $1->line, 3, $1, createNode("LT", "", $2, 0), $3);
     intOperate("less than");
+    pushExp(BOOLEAN, false);
 }
 | Exp LE Exp {
     $$ = createNode("Exp", "", $1->line, 3, $1, createNode("LE", "", $2, 0), $3);
     intOperate("less equal");
+    pushExp(BOOLEAN, false);
 }
 | Exp GT Exp {
     $$ = createNode("Exp", "", $1->line, 3, $1, createNode("GT", "", $2, 0), $3);
     intOperate("greater than");
+    pushExp(BOOLEAN, false);
 }
 | Exp GE Exp {
     $$ = createNode("Exp", "", $1->line, 3, $1, createNode("GE", "", $2, 0), $3);
     intOperate("greater equal");
+    pushExp(BOOLEAN, false);
 }
 | Exp NE Exp {
     $$ = createNode("Exp", "", $1->line, 3, $1, createNode("NE", "", $2, 0),$3);
     intOperate("not equal");
+    pushExp(BOOLEAN, false);
 }
 | Exp EQ Exp {
     $$ = createNode("Exp", "", $1->line, 3, $1, createNode("EQ", "", $2, 0), $3);
     intOperate("equal");
+    pushExp(BOOLEAN, false);
 }
 | Exp PLUS Exp {
     $$ = createNode("Exp", "", $1->line, 3, $1, createNode("PLUS", "", $2, 0), $3);
-    intOperate("plus");
+    pushExp(intOperate("plus"), false);
 }
 | Exp MINUS Exp {
     $$ = createNode("Exp", "", $1->line, 3, $1, createNode("MINUS", "", $2, 0),$3);
-    intOperate("minus");
+    pushExp(intOperate("minus"), false);
 }
 | Exp MUL Exp {
     $$ = createNode("Exp", "", $1->line, 3, $1, createNode("MUL", "", $2, 0), $3);
-    intOperate("multiply");
+    pushExp(intOperate("multiply"), false);
 }
 | Exp DIV Exp {
     $$ = createNode("Exp", "", $1->line, 3, $1, createNode("DIV", "", $2, 0), $3);
-    intOperate("divided by");
+    pushExp(intOperate("divided by"), false);
 }
 | LP Exp RP {
     $$ = createNode("Exp", "", $1, 3, createNode("LP", "", $1, 0), $2, createNode("RP", "", $3, 0));
@@ -509,14 +510,11 @@ Exp : Exp ASSIGN Exp {
     }
     if (type -> category == ARRAY){
         type = type -> array -> base;
-        // printf("bug here\n");
-        pushExp(type -> category, true);
-        if (type -> category == STRUCTURE){
-            structureType = type;
-        }
-    }else {
-        pushExp(type -> category, true);
+        // if (type -> category == STRUCTURE){
+        //     structureType = type;
+        // }
     }
+    pushExp(type -> category, true);
 }
 | Exp DOT ID {
     $$ = createNode("Exp", "", $1->line, 3, $1, createNode("DOT", "", $2, 0), createNode("ID", $3.string, $3.line, 0));
@@ -1183,8 +1181,7 @@ void printAllTable() {
     }
 }
 
-void intOperate(char* op) {
-    Category push = NUL;
+Category intOperate(char* op) {
     Category exp1 = popExp() -> category, exp2 = popExp() -> category;
     printf("info line %d: %s %s %s \n", line, categoryToString(exp1), op, categoryToString(exp2));
     if (exp1 != INT && exp1 != FLOATNUM){
@@ -1197,9 +1194,9 @@ void intOperate(char* op) {
         printf("Error type 7 at Line %d: unmatching operands\n", line);
     }
     if (exp1 == INT && exp2 == INT || exp1 == FLOAT && exp2 == FLOAT) {
-        push = exp1;
+        return exp1;
     }
-    pushExp(push, false);
+    return NUL;
 }
 
 void boolOperate(char* op) {
