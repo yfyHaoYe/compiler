@@ -644,26 +644,36 @@ CHAR: PCHAR {$$.string = strdup($1.string); $$.line = $1.line;}
 //modified: translation function
 void translate_Exp(TreeNode* Exp, const char* place){
     if(strcmp(Exp->children[0]->type, "INT") == 0){
+        printf("bug1 here\n");
         translate_Exp_INT(Exp->children[0], place);
-    }else if(Exp->numChildren == 1 && strcmp(Exp->children[0]->type, "ID")){
+    }else if(Exp->numChildren == 1 && strcmp(Exp->children[0]->type, "ID") == 0){
+        printf("bug2 here\n");
         translate_Exp_ID(Exp->children[0], place);
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "ASSIGN") == 0){
+        printf("bug3 here\n");
         translate_Exp_ASSIGN(Exp, place);
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "PLUS") == 0){
+        printf("bug4 here\n");
         translate_Exp_PLUS(Exp, place);
     }else if(Exp->numChildren == 2 && strcmp(Exp->children[0]->type, "MINUS") == 0){
+        printf("bug5 here\n");
         translate_Exp_MINUS(Exp, place);
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[0]->value, "read") == 0){
+        printf("bug6 here\n");
         fprintf(code_file, "READ %s\n", place);
     }else if(Exp->numChildren == 4 && strcmp(Exp->children[0]->value, "write") == 0){
+        printf("bug7 here\n");
         const char* tp = new_place();
         translate_Exp(Exp->children[2], tp);
         fprintf(code_file, "WRITE %s\n", tp);
     }else if(Exp->numChildren == 4 && strcmp(Exp->children[2]->type, "Args") == 0){
+        printf("bug8 here\n");
         translate_Exp_Args(Exp, place);
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[0]->type, "LP") == 0){
+        printf("bug9 here\n");
         translate_Exp(Exp->children[1], place);
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "LP") == 0){
+        printf("bug10 here\n");
         translate_Exp_Func(Exp, place);
     }
 }
