@@ -82,7 +82,7 @@ int|float|char|string {yylval.str_line.string = strdup(yytext);yylval.str_line.l
         return STR;
     }
 }
-[+-]{0,1}(({digitno0}{digit}*)|0) {
+(({digitno0}{digit}*)|0) {
     if (yyleng < 33){
         yylval.str_line.string = strdup(yytext);
         yylval.str_line.line = line;

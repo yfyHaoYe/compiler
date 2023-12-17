@@ -625,7 +625,7 @@ Args : Exp COMMA Args {
 }
 | Exp {
     $$ = createNode("Args", "", $1->line, 1, $1);
-    function = (Function*)malloc(sizeof(Function*));
+    function = (Function*)malloc(sizeof(Function));
     function -> paramNum = 1;
     function -> varList = (CategoryList*) malloc(sizeof(CategoryList));
     function -> varList -> category = popExp() -> category;
