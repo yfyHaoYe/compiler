@@ -88,7 +88,7 @@
     void translate_Exp_Args(TreeNode*, const char*);
     void translate_Exp_Func(TreeNode* Exp, const char* place);
     void translate_cond_Exp(TreeNode* Exp, const char* lb_t, const char* lb_f);
-    void translate_cond_Exp_EQ(TreeNode* Exp, const char* lb_t, const char* lb_f);
+    void translate_cond_Exp_BOOL_OP(TreeNode* Exp, const char* lb_t, const char* lb_f, const char* op);
     void translate_cond_Exp_AND(TreeNode* Exp, const char* lb_t, const char* lb_f);
     void translate_cond_Exp_OR(TreeNode* Exp, const char* lb_t, const char* lb_f);
     void translate_Stmt(TreeNode*);
@@ -740,12 +740,12 @@ void translate_Exp_Args(TreeNode* Exp, const char* place){
         current = current -> next;
     }
     char* name = Exp -> children[0] -> value;
-    printf("CALL %s\n", name);
+    fprintf(code_file, "CALL %s\n", name);
 }
 
 void translate_Exp_Func(TreeNode* Exp, const char* place){
     char* name = Exp -> children[0] -> value;
-    printf("CALL %s\n", name);
+    fprintf(code_file, "CALL %s\n", name);
 }
 //TODO：定义语句
 
@@ -753,7 +753,17 @@ void translate_Exp_Func(TreeNode* Exp, const char* place){
 //modified: translate condition expression
 void translate_cond_Exp(TreeNode* Exp, const char* lb_t, const char* lb_f){
     if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "EQ") == 0){
-        translate_cond_Exp_EQ(Exp, lb_t, lb_f);
+        translate_cond_Exp_BOOL_OP(Exp, lb_t, lb_f, "==");
+    }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "NE") == 0){
+        translate_cond_Exp_BOOL_OP(Exp, lb_t, lb_f, "!=");
+    }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "GE") == 0){
+        translate_cond_Exp_BOOL_OP(Exp, lb_t, lb_f, ">=");
+    }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "GT") == 0){
+        translate_cond_Exp_BOOL_OP(Exp, lb_t, lb_f, ">");
+    }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "LE") == 0){
+        translate_cond_Exp_BOOL_OP(Exp, lb_t, lb_f, "<=");
+    }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "LT") == 0){
+        translate_cond_Exp_BOOL_OP(Exp, lb_t, lb_f, "<");
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "AND") == 0){
         translate_cond_Exp_AND(Exp, lb_t, lb_f);
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "OR") == 0){
@@ -763,12 +773,12 @@ void translate_cond_Exp(TreeNode* Exp, const char* lb_t, const char* lb_f){
     }
 }
 
-void translate_cond_Exp_EQ(TreeNode* Exp, const char* lb_t, const char* lb_f){
+void translate_cond_Exp_BOOL_OP(TreeNode* Exp, const char* lb_t, const char* lb_f, const char* op){
     const char* tp1 = new_place();
     const char* tp2 = new_place();
     translate_Exp(Exp->children[0], tp1);
     translate_Exp(Exp->children[2], tp2);
-    fprintf(code_file, "IF %s == %s GOTO %s\n", tp1, tp2, lb_t);
+    fprintf(code_file, "IF %s %s %s GOTO %s\n", tp1, op, tp2, lb_t);
     fprintf(code_file, "GOTO %s\n", lb_f);
 }
 

@@ -15,6 +15,7 @@ t18 := t9
 t19 := #10
 ARG t18
 ARG t19
+CALL mod
 t14 := t17
 t16 := t14
 t24 := t10
@@ -30,35 +31,40 @@ t27 := t28 / t29
 t9 := t27
 t26 := t9
 LABEL label0 :
+t30 := t9
+t31 := #0
+IF t30 != t31 GOTO label1
+GOTO label2
 LABEL label1 :
 GOTO label0
 LABEL label2 :
-t30 := #1
-RETURN t30
-t31 := #0
-RETURN t31
-t32 := t10
-t33 := t12
-IF t32 == t33 GOTO label3
+t32 := #1
+RETURN t32
+t33 := #0
+RETURN t33
+t34 := t10
+t35 := t12
+IF t34 == t35 GOTO label3
 GOTO label4
 LABEL label3 :
 GOTO label5
 LABEL label4 :
 LABEL label5 :
 FUNCTION main :
-READ t37
-t34 := t37
-t36 := t34
-WRITE t39
+READ t39
+t36 := t39
+t38 := t36
 WRITE t41
-t44 := t34
-ARG t44
-t43 := #1
-IF t42 == t43 GOTO label6
+WRITE t43
+t46 := t36
+ARG t46
+CALL isPalindrome
+t45 := #1
+IF t44 == t45 GOTO label6
 GOTO label7
 LABEL label6 :
 GOTO label8
 LABEL label7 :
 LABEL label8 :
-t45 := #0
-RETURN t45
+t47 := #0
+RETURN t47
