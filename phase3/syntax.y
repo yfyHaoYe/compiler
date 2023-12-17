@@ -82,7 +82,7 @@
     void translate_Exp_INT(TreeNode*, const char*);
     void translate_Exp_ID(TreeNode*, const char*);
     void translate_Exp_ASSIGN(TreeNode*, const char*);
-    void translate_Exp_PLUS(TreeNode*, const char*);
+    void translate_Exp_NUM_OP(TreeNode*, const char*, const char*);
     void translate_Exp_MINUS(TreeNode*, const char*);
     void translate_Exp_cond(TreeNode*, const char*);
     void translate_Exp_Args(TreeNode*, const char*);
@@ -654,7 +654,16 @@ void translate_Exp(TreeNode* Exp, const char* place){
         translate_Exp_ASSIGN(Exp, place);
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "PLUS") == 0){
         printf("bug4 here\n");
-        translate_Exp_PLUS(Exp, place);
+        translate_Exp_NUM_OP(Exp, place, "+");
+    }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "MINUS") == 0){
+        printf("bug4 here\n");
+        translate_Exp_NUM_OP(Exp, place, "-");
+    }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "MUL") == 0){
+        printf("bug4 here\n");
+        translate_Exp_NUM_OP(Exp, place, "*");
+    }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "DIV") == 0){
+        printf("bug4 here\n");
+        translate_Exp_NUM_OP(Exp, place, "/");
     }else if(Exp->numChildren == 2 && strcmp(Exp->children[0]->type, "MINUS") == 0){
         printf("bug5 here\n");
         translate_Exp_MINUS(Exp, place);
@@ -689,19 +698,19 @@ void translate_Exp_ID(TreeNode* ID, const char* place){
 }
 
 void translate_Exp_ASSIGN(TreeNode* Exp, const char* place){
-    const char* var1 = get(Exp->children[0]->value)->registerName;
+    const char* var1 = get(Exp->children[0]->children[0]->value)->registerName;
     const char* var2 = new_place();
     translate_Exp(Exp->children[2], var2);
     fprintf(code_file, "%s := %s\n", var1, var2);
     fprintf(code_file, "%s := %s\n", place, var1);
 }
 
-void translate_Exp_PLUS(TreeNode* Exp, const char* place){
+void translate_Exp_NUM_OP(TreeNode* Exp, const char* place, const char* op){
     const char* tp1 = new_place();
     const char* tp2 = new_place();
     translate_Exp(Exp->children[0], tp1);
     translate_Exp(Exp->children[2], tp2);
-    fprintf(code_file, "%s := %s + %s", place, tp1, tp2);  
+    fprintf(code_file, "%s := %s %s %s\n", place, tp1, op, tp2);  
 }
 
 void translate_Exp_MINUS(TreeNode* Exp, const char* place){
@@ -728,6 +737,7 @@ void translate_Exp_Args(TreeNode* Exp, const char* place){
     ListNode* current = *arg_list;
     while(current != NULL){
         fprintf(code_file,"ARG %s\n",current->arg);
+        current = current -> next;
     }
     char* name = Exp -> children[0] -> value;
     printf("CALL %s\n", name);
@@ -845,7 +855,7 @@ void translate_Args_COMMA(TreeNode* Args, ListNode** arg_list){
     const char* tp = new_place();
     translate_Exp(Args->children[0], tp);
     insertListNode(arg_list, tp);
-    translate_Args(Args, arg_list);
+    translate_Args(Args->children[2], arg_list);
 }
 
 const char* new_label(){
@@ -1025,7 +1035,9 @@ void initFunction(char* name) {
     if (functionType != NULL){
         printf("warning line %d: function type isn't correctly clear! %s %s\n", line, categoryToString(functionType -> category), functionType-> name);
     }
-    fprintf(code_file, "FUNCTION %s :\n", name);
+    if (strcmp(name, "write")!=0&&strcmp(name,"read")!=0){
+        fprintf(code_file, "FUNCTION %s :\n", name);
+    }
     functionType = (Type*)malloc(sizeof(Type));
     functionType -> category = FUNCTION;
     strcpy(functionType -> name, name);

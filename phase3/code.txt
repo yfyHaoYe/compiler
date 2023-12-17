@@ -1,0 +1,64 @@
+FUNCTION mod :
+t3 := t0
+t7 := t0
+t8 := t1
+t5 := t7 / t8
+t6 := t1
+t4 := t5 * t6
+t2 := t3 - t4
+RETURN t2
+FUNCTION isPalindrome :
+t10 := #0
+t12 := t9
+t14 := #0
+t18 := t9
+t19 := #10
+ARG t18
+ARG t19
+t14 := t17
+t16 := t14
+t24 := t10
+t25 := #10
+t22 := t24 * t25
+t23 := t14
+t21 := t22 + t23
+t10 := t21
+t20 := t10
+t28 := t9
+t29 := #10
+t27 := t28 / t29
+t9 := t27
+t26 := t9
+LABEL label0 :
+LABEL label1 :
+GOTO label0
+LABEL label2 :
+t30 := #1
+RETURN t30
+t31 := #0
+RETURN t31
+t32 := t10
+t33 := t12
+IF t32 == t33 GOTO label3
+GOTO label4
+LABEL label3 :
+GOTO label5
+LABEL label4 :
+LABEL label5 :
+FUNCTION main :
+READ t37
+t34 := t37
+t36 := t34
+WRITE t39
+WRITE t41
+t44 := t34
+ARG t44
+t43 := #1
+IF t42 == t43 GOTO label6
+GOTO label7
+LABEL label6 :
+GOTO label8
+LABEL label7 :
+LABEL label8 :
+t45 := #0
+RETURN t45
