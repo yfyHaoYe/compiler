@@ -53,42 +53,42 @@ bool contain(TypeTable* typeTable, char* name){
     }
 }
 
-bool checkTypeSame(Type* type1, Type* type2){
-    if(type1 == NULL && type2 == NULL){
-        return true;
-    }
+// bool checkTypeSame(Type* type1, Type* type2){
+//     if(type1 == NULL && type2 == NULL){
+//         return true;
+//     }
     
-    if (type1 == NULL || type2 == NULL || type1 -> category != type2 -> category){
-        return false;
-    }
+//     if (type1 == NULL || type2 == NULL || type1 -> category != type2 -> category){
+//         return false;
+//     }
 
-    if (type1 -> category == ARRAY){
-        return checkTypeSame(type1 -> array -> base, type2 -> array -> base);
-    }
+//     if (type1 -> category == ARRAY){
+//         return checkTypeSame(type1 -> array -> base, type2 -> array -> base);
+//     }
     
-    if (type1 -> category == STRUCTURE){
-        return checkStructureSame(type1 -> structure -> typeList, type2 -> structure -> typeList);
-    }
+//     if (type1 -> category == STRUCTURE){
+//         return checkStructureSame(type1 -> structure -> typeList, type2 -> structure -> typeList);
+//     }
 
-    if (type1 -> category == FUNCTION){
-        return false;
-    }
+//     if (type1 -> category == FUNCTION){
+//         return false;
+//     }
 
-    printf("Type categorys can't recognize, find in checkTypeSame, name1:%s, name2:%s\n", type1 -> name, type2 -> name);
-    return false;
-}
+//     // printf("Type categorys can't recognize, find in checkTypeSame, name1:%s, name2:%s\n", type1 -> name, type2 -> name);
+//     return false;
+// }
 
-bool checkStructureSame(TypeList* structure1, TypeList* structure2){
-    if(structure1 == NULL && structure2 == NULL){
-        return true;
-    }
+// bool checkStructureSame(TypeList* structure1, TypeList* structure2){
+//     if(structure1 == NULL && structure2 == NULL){
+//         return true;
+//     }
     
-    if(structure1 == NULL || structure2 == NULL || checkTypeSame(structure1 -> type, structure2 -> type) == false){
-        return false;
-    }
+//     if(structure1 == NULL || structure2 == NULL || checkTypeSame(structure1 -> type, structure2 -> type) == false){
+//         return false;
+//     }
 
-    return checkStructureSame(structure1 -> next, structure2 -> next);
-}
+//     return checkStructureSame(structure1 -> next, structure2 -> next);
+// }
 
 Type* getType(TypeTable* typeTable, char* name) {
     unsigned int hash = hashFunction(name);
@@ -106,7 +106,7 @@ Type* getType(TypeTable* typeTable, char* name) {
 }
 
 Category structureFind(TypeList* typeList, char* name) {
-    printf("info finding %s in typelist\n", name);
+    // printf("info finding %s in typelist\n", name);
     while (typeList != NULL && strcmp(typeList -> type -> name, name) != 0){
         typeList = typeList -> next;
     }
@@ -116,34 +116,38 @@ Category structureFind(TypeList* typeList, char* name) {
     return typeList -> type -> category;
 }
 
-void printTable(TypeTable* typeTable){
+char table_msg[2000];
+char* printTable(TypeTable* typeTable){
     for (int i = 0; i < TABLE_SIZE; i++){
         if (!typeTable -> isFilled[i]){
             continue;
         }
         HashNode* node = typeTable -> buckets[i];
         while (node != NULL) {
-            printType(node -> type);
+            strcat(table_msg, printType(node -> type));
             node = node -> next;
         }
     }
+    return table_msg;
 }
 
-void printType(Type* type){
+char msg[200];
+char* printType(Type* type){
     if (type -> category == STRUCTURE) {
-        printf("Type name: %s, category: struct %s\n", type -> name, type -> structure -> name);
-        return;
+        sprintf(msg, "Type name: %s, category: struct %s\n", type -> name, type -> structure -> name);
+        return msg;
     }
-    printf("Type name: %s, category: %s\n", type -> name, categoryToString(type -> category));
+    sprintf(msg, "Type name: %s, category: %s\n", type -> name, categoryToString(type -> category));
     if(type -> category == FUNCTION){
         printCategoryList(type -> function -> varList);
     }
+    return msg;
 }
 
 void printCategoryList(CategoryList* categoryList) {
     while (categoryList != NULL)
     {
-        printf("param: %s\n", categoryToString(categoryList->category));
+        // printf("param: %s\n", categoryToString(categoryList->category));
         categoryList = categoryList -> next;
     }
     
@@ -232,7 +236,7 @@ void freeType(Type* type){
         } else if (type -> category == FUNCTION){
             freeFunction(type -> function);
         } else if (type -> category == NUL){
-            printf("warning: Type category is null, name: %s\n", type -> name);
+            // printf("warning: Type category is null, name: %s\n", type -> name);
         }
         free(type);
     }

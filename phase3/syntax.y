@@ -20,6 +20,7 @@
     char num[50];
     void freeTree(TreeNode* node);
     FILE* code_file;
+    FILE* syntax_file;
 
     //phase2
     TypeTable* scopeStack[MAX_DEPTH];
@@ -160,7 +161,7 @@ StructSpecifier SEMI {
 }
 | Specifier FunDec CompSt {
     $$ = createNode("ExtDef", "", $1->line, 3, $1, $2, $3);
-    printf("info line %d: function end\n", line);
+    fprintf(syntax_file, "info line %d: function end\n", line);
     functionType = NULL;
 }
 | Specifier error {
@@ -221,7 +222,7 @@ VarDec : ID {
     if (definingStruct){
         Type* result = get(structureType -> name);
         if(!result -> category == STRUCTURE){
-            printf("Error type ? line %d: define structure with non-struct id %s\n", line, type -> name);
+            fprintf(syntax_file, "Error type ? line %d: define structure with non-struct id %s\n", line, type -> name);
         }else{
             structureType -> structure -> typeList = result -> structure -> typeList;
             strcpy(structureType -> structure -> name, structureType -> name);
@@ -229,7 +230,7 @@ VarDec : ID {
         }
     }else{
         strcpy(type -> name, $1.string);
-        printf("info line %d: creating VarDec, name: %s\n", line, type -> name);
+        fprintf(syntax_file, "info line %d: creating VarDec, name: %s\n", line, type -> name);
     }
 }
 | VarDec LB INT RB {
@@ -314,9 +315,9 @@ Stmt : Exp SEMI {
     Category find = popExp() -> category;
     Category expected = functionType -> function -> returnCategory;
     if (find != expected){
-        printf("Error type 8 at Line %d: incompatiable return type, except: %s, got: %s\n", line, categoryToString(expected), categoryToString(find));
+        fprintf(syntax_file, "Error type 8 at Line %d: incompatiable return type, except: %s, got: %s\n", line, categoryToString(expected), categoryToString(find));
     }
-    printf("info line %d: returning %s\n", $1, categoryToString(find));
+    fprintf(syntax_file, "info line %d: returning %s\n", $1, categoryToString(find));
     translate_Stmt($$);
 }
 | IF LP Exp RP Stmt %prec LOWER {
@@ -401,7 +402,7 @@ Dec : VarDec {
     $$ = createNode("Dec", "", $1->line, 3, $1, createNode("ASSIGN", "", $2, 0), $3);
     Category exp = popExp() -> category;
     if (exp != NUL && type -> category != exp) {
-        printf("Error type 5 at Line %d: unmatching type on both sides of assignment, expected %s, got %s\n", line, categoryToString(type -> category), categoryToString(exp));
+        fprintf(syntax_file, "Error type 5 at Line %d: unmatching type on both sides of assignment, expected %s, got %s\n", line, categoryToString(type -> category), categoryToString(exp));
     }
     handleDec();
     Type* cur = get($1->children[0]->value);
@@ -416,10 +417,10 @@ Exp : Exp ASSIGN Exp {
     Expression* exp2 = popExp();
 
     if (!exp2 -> lvalue){
-        printf("Error type 6 at Line %d: rvalue appears on the left-side of assignment\n", line);
+        fprintf(syntax_file, "Error type 6 at Line %d: rvalue appears on the left-side of assignment\n", line);
     }
     if (exp1 -> category != exp2 -> category) {
-        printf("Error type 5 at Line %d: unmatching type on both sides of assignment\n", line);
+        fprintf(syntax_file, "Error type 5 at Line %d: unmatching type on both sides of assignment\n", line);
     }
     pushExp(exp2 -> category, false);
 }
@@ -485,26 +486,26 @@ Exp : Exp ASSIGN Exp {
 | MINUS Exp {
     $$ = createNode("Exp", "", $1, 2, createNode("MINUS", "", $1, 0), $2);
     Category exp = popExp() -> category;
-    printf("info line %d: minus %s \n", line, categoryToString(exp));
+    fprintf(syntax_file, "info line %d: minus %s \n", line, categoryToString(exp));
     if (exp != INT && exp != FLOATNUM){
-        printf("Error type 7 at Line %d: binary operation on non-number variables\n", line);
+        fprintf(syntax_file, "Error type 7 at Line %d: binary operation on non-number variables\n", line);
     }
     pushExp(INT, false);
 }
 | NOT Exp {
     $$ = createNode("Exp", "", $1, 2, createNode("NOT", "", $1, 0), $2);
     Category exp = popExp() -> category;
-    printf("info line %d: not %s \n", line, categoryToString(exp));
+    fprintf(syntax_file, "info line %d: not %s \n", line, categoryToString(exp));
     pushExp(BOOLEAN, false);
 }
 | Exp LB Exp RB {
     $$ = createNode("Exp", "", $1->line, 4, $1, createNode("LB", "", $2, 0), $3, createNode("RB", "", $4, 0));
     Category exp1 = popExp() -> category, exp2 = popExp() -> category;
     if (exp1 != INT){
-        printf("Error type 12 at Line %d: indexing by non-integer", line);
+        fprintf(syntax_file, "Error type 12 at Line %d: indexing by non-integer", line);
     }
     if (exp2 != ARRAY){
-        printf("Error type 10 at line %d: indexing on non-array variable\n", line);
+        fprintf(syntax_file, "Error type 10 at line %d: indexing on non-array variable\n", line);
     }
     if (type -> category == ARRAY){
         type = type -> array -> base;
@@ -515,15 +516,15 @@ Exp : Exp ASSIGN Exp {
     $$ = createNode("Exp", "", $1->line, 3, $1, createNode("DOT", "", $2, 0), createNode("ID", $3.string, $3.line, 0));
     Category exp = popExp() -> category;
     if (exp != STRUCTURE){
-        printf("Error type 13 at Line %d: accessing with non-struct variable\n", line);
+        fprintf(syntax_file, "Error type 13 at Line %d: accessing with non-struct variable\n", line);
         pushExp(NUL, true);
     }else{
         if (structureType == NULL){
-            printf("something is wrong\n");
+            // printf("something is wrong\n");
         }
         Category category = structureFind(structureType -> structure -> typeList, $3.string);
         if(category == NUL){
-            printf("Error type 14 at Line %d: accessing an undefined structure member\n", line);
+            fprintf(syntax_file, "Error type 14 at Line %d: accessing an undefined structure member\n", line);
         }
         pushExp(category, true);
     }
@@ -533,13 +534,13 @@ Exp : Exp ASSIGN Exp {
     Type* result = get($1.string);
     if (result != NULL){
         if (result -> category == NUL) {
-            printf("warning line %d: type had been used without definition before, name: %s\n", line, $1.string);
+            fprintf(syntax_file, "warning line %d: type had been used without definition before, name: %s\n", line, $1.string);
             pushExp(NUL, true);
         } else if (result -> category == ARRAY) {       
             type = result;
             pushExp(result -> category, true);
         } else if (result -> category == FUNCTION){
-            printf("Error type ? at line %d: function invoked without ()\n", line);
+            fprintf(syntax_file, "Error type ? at line %d: function invoked without ()\n", line);
             pushExp(result -> function -> returnCategory, true);
         } else if (result -> category == STRUCTURE){
             structureType = result;
@@ -549,7 +550,7 @@ Exp : Exp ASSIGN Exp {
         }
     } else {
         // 
-        printf("Error type 1 at Line %d: \"%s\" is used without a definition\n", line, $1.string);
+        fprintf(syntax_file, "Error type 1 at Line %d: \"%s\" is used without a definition\n", line, $1.string);
         Type* temp = (Type*)malloc(sizeof(TYPE));
         strcpy(temp -> name, $1.string);
         temp -> category = NUL;
@@ -579,14 +580,14 @@ Exp : Exp ASSIGN Exp {
     $$ = createNode("Exp", "", $1.line, 3, createNode("ID", $1.string, $1.line, 0), createNode("LP", "", $1.line, 0), createNode("RP", "", $1.line, 0));
     Type* functionType2 = get($1.string);
     if (functionType2 == NULL){
-        printf("Error type 2 at Line %d: \"%s\" is invoked without a definition", line, $1.string);
+        fprintf(syntax_file, "Error type 2 at Line %d: \"%s\" is invoked without a definition", line, $1.string);
         pushExp(NUL, false);
     }else if (functionType2 -> category != FUNCTION) {
-        printf("Error type 11 at Line %d: invoking non-function variable", line);
+        fprintf(syntax_file, "Error type 11 at Line %d: invoking non-function variable", line);
         pushExp(functionType2 -> category, false);
     }else {
         if (functionType2 -> function -> paramNum != 0){
-            printf("Error type 9 at Line %d: invalid argument number, except %d, got 0\n", line, functionType -> function -> paramNum);
+            fprintf(syntax_file, "Error type 9 at Line %d: invalid argument number, except %d, got 0\n", line, functionType -> function -> paramNum);
             pushExp(functionType2 -> function -> returnCategory, false);
         }else {
             pushExp(functionType2 -> function -> returnCategory, false);
@@ -973,9 +974,9 @@ void push(){
         declaringFunction = false;
         return;
     }
-    printf("info line %d: pushing scope stack\n", line);
+    fprintf(syntax_file, "info line %d: pushing scope stack\n", line);
     if (scopeDepth == MAX_DEPTH - 1){
-        printf("warning line %d: Scope depth exceed, can't push!\n", line);
+        fprintf(syntax_file, "warning line %d: Scope depth exceed, can't push!\n", line);
         return;
     }
     scopeStack[++scopeDepth] = (TypeTable*) malloc(sizeof(TypeTable));
@@ -984,25 +985,25 @@ void push(){
 }
 
 void pop(){
-    printf("info line %d: popping scope stack\n", line);
+    fprintf(syntax_file, "info line %d: popping scope stack\n", line);
     if (scopeDepth == -1){
-        printf("warning line %d: Scope stack is empty, can't pop!\n", line);
+        fprintf(syntax_file, "warning line %d: Scope stack is empty, can't pop!\n", line);
         return;
     }
-    printf("\nBefore:\n");
+    fprintf(syntax_file, "\nBefore:\n");
     printAllTable();
     if (!declaringStruct){
         freeTypeTable(scopeStack[scopeDepth]);
     }
     scopeDepth--;
-    printf("\nAfter:\n");
+    fprintf(syntax_file, "\nAfter:\n");
     printAllTable();
 }
 
 void pushExp(Category exp, bool lvalue) {
-    printf("info line %d: pushing exp %s\n", line, categoryToString(exp));
+    fprintf(syntax_file, "info line %d: pushing exp %s\n", line, categoryToString(exp));
     if (expDepth == MAX_DEPTH - 1) {
-        printf("warning line %d: Exp depth exceed, can't push!\n", line);
+        fprintf(syntax_file, "warning line %d: Exp depth exceed, can't push!\n", line);
     }
     Expression* expression = (Expression*)malloc(sizeof(Expression));
     expression -> category = exp;
@@ -1012,18 +1013,18 @@ void pushExp(Category exp, bool lvalue) {
 
 Expression* popExp() {
     Expression* expression = expStack[--expDepth];
-    printf("info line %d: popping exp %s\n", line, categoryToString(expression -> category));
+    fprintf(syntax_file, "info line %d: popping exp %s\n", line, categoryToString(expression -> category));
     if (expDepth == -1) {
-        printf("warning line %d: Exp stack is empty, can't pop!\n", line);
+        fprintf(syntax_file, "warning line %d: Exp stack is empty, can't pop!\n", line);
         return 0;
     }
     return expression;
 }
 
 void init(Category category) {
-    printf("info line %d: initing type, category: %s\n", line, categoryToString(category));
+    fprintf(syntax_file, "info line %d: initing type, category: %s\n", line, categoryToString(category));
     if (type != NULL){
-        printf("warning line %d: type isn't correctly clear! name: %s, category: %s\n", line, type -> name, categoryToString(type -> category));
+        fprintf(syntax_file, "warning line %d: type isn't correctly clear! name: %s, category: %s\n", line, type -> name, categoryToString(type -> category));
     }
     type = (Type*) malloc(sizeof(Type));
     type -> category = category;
@@ -1034,16 +1035,16 @@ void init(Category category) {
     if (category != ARRAY) {
         return;
     }
-    printf("warning line %d: initing an array\n", line);
+    fprintf(syntax_file, "warning line %d: initing an array\n", line);
     type -> array = (Array*)malloc(sizeof(Array));
     type -> array -> base = NULL;
     type -> array -> size = 0;    
 }
 
 void initFunction(char* name) {
-    printf("info line %d: initing function name: %s\n", line, name);
+    fprintf(syntax_file, "info line %d: initing function name: %s\n", line, name);
     if (functionType != NULL){
-        printf("warning line %d: function type isn't correctly clear! %s %s\n", line, categoryToString(functionType -> category), functionType-> name);
+        fprintf(syntax_file, "warning line %d: function type isn't correctly clear! %s %s\n", line, categoryToString(functionType -> category), functionType-> name);
     }
     if (strcmp(name, "write")!=0&&strcmp(name,"read")!=0){
         fprintf(code_file, "FUNCTION %s :\n", name);
@@ -1059,9 +1060,9 @@ void initFunction(char* name) {
 }
 
 void initStruct(char* name){
-    printf("info line %d: initing struct, name: %s\n", line, name);
+    fprintf(syntax_file, "info line %d: initing struct, name: %s\n", line, name);
     if (structureType != NULL){
-        printf("warning line %d: struct isn't correctly clear! name: %s\n", line, type -> name);
+        fprintf(syntax_file, "warning line %d: struct isn't correctly clear! name: %s\n", line, type -> name);
     }
     structureType = (Type*) malloc(sizeof(Type));
     strcpy(structureType -> name, name);
@@ -1089,7 +1090,7 @@ void handleDec(){
 }
 
 void initArray(int size){
-    printf("info line %d: initing array, name: %s\n", line, type -> name);
+    fprintf(syntax_file, "info line %d: initing array, name: %s\n", line, type -> name);
     Array* array = (Array*)malloc(sizeof(Array));
     array -> base = type;
     array -> size = size;
@@ -1104,15 +1105,15 @@ void insert() {
         insertStruct();
         return;
     }
-    printf("info line %d: inserting type: %s %s\n", line, categoryToString(type -> category), type -> name);
+    fprintf(syntax_file, "info line %d: inserting type: %s %s\n", line, categoryToString(type -> category), type -> name);
     if (check(type -> name)) {
         Type* t = get(type -> name);
         if (t -> category == NUL) {
             t -> category = type -> category;
-            printf("warning line %d, recovering %s used but not declared upon\n", line, type -> name);
+            fprintf(syntax_file, "warning line %d, recovering %s used but not declared upon\n", line, type -> name);
             return;
         }
-        printf("Error type 3 at Line %d: variable \"%s\" is redefined in the same scope\n", line, type -> name);
+        fprintf(syntax_file, "Error type 3 at Line %d: variable \"%s\" is redefined in the same scope\n", line, type -> name);
         return;
     }
     insertIntoTypeTable(scopeStack[scopeDepth], type);
@@ -1120,9 +1121,9 @@ void insert() {
 }
 
 void insertFunction(){
-    printf("info line %d: inserting function: %s\n", line, functionType -> name);
+    fprintf(syntax_file, "info line %d: inserting function: %s\n", line, functionType -> name);
     if (check(functionType -> name) && get(functionType -> name) -> category == FUNCTION){
-        printf("Error type 4 at Line %d: \"%s\" is redefined\n", line, functionType -> name);
+        fprintf(syntax_file, "Error type 4 at Line %d: \"%s\" is redefined\n", line, functionType -> name);
         return;
     }
     insertIntoTypeTable(scopeStack[scopeDepth], functionType);
@@ -1130,9 +1131,9 @@ void insertFunction(){
 }
 
 void insertStruct(){
-    printf("info line %d: inserting structure, struct %s %s\n", line, structureType -> structure -> name, structureType -> name);
+    fprintf(syntax_file, "info line %d: inserting structure, struct %s %s\n", line, structureType -> structure -> name, structureType -> name);
     if (check(structureType -> name) && get(structureType -> name) -> category == STRUCTURE) {
-        printf("Error type 15 at Line %d: redefine the same structure type\n", line);
+        fprintf(syntax_file, "Error type 15 at Line %d: redefine the same structure type\n", line);
         return;
     }
     insertIntoTypeTable(scopeStack[scopeDepth], structureType);
@@ -1141,18 +1142,18 @@ void insertStruct(){
 }
 
 void clear(){
-    printf("info line %d: clearing type, %s %s\n", line, categoryToString(type -> category), type -> name);
+    fprintf(syntax_file, "info line %d: clearing type, %s %s\n", line, categoryToString(type -> category), type -> name);
     freeType(type);
     type = NULL;
 }
 
 void setNull() {
-    printf("info line %d: setting type to NULL, current: %s %s\n", line, categoryToString(type -> category), type -> name);
+    fprintf(syntax_file, "info line %d: setting type to NULL, current: %s %s\n", line, categoryToString(type -> category), type -> name);
     type = NULL;
 }
 
 void clearArray() {
-    printf("info line %d: clearing array, name: %s\n", line, type -> name);
+    fprintf(syntax_file, "info line %d: clearing array, name: %s\n", line, type -> name);
     while(type -> category == ARRAY){
         type = type -> array -> base;
     }
@@ -1163,12 +1164,12 @@ void recreate() {
         recreateStruct();
         return;
     }
-    printf("info line %d: recreating type, %s %s\n", line, categoryToString(type -> category), type -> name);
+    fprintf(syntax_file, "info line %d: recreating type, %s %s\n", line, categoryToString(type -> category), type -> name);
     if (type -> category == ARRAY) {
         clearArray();
     }
     if(type -> category == STRUCTURE){
-        printf("warning line %d: recreating and the type is a structure\n", line);
+        fprintf(syntax_file, "warning line %d: recreating and the type is a structure\n", line);
     }
     Type* temp = (Type*)malloc(sizeof(Type));
     temp -> category = type -> category;
@@ -1179,9 +1180,9 @@ void recreate() {
 }
 
 void recreateStruct() {
-    printf("info line %d: recreating struct, %s %s\n", line, structureType -> structure -> name, structureType -> name);
+    fprintf(syntax_file, "info line %d: recreating struct, %s %s\n", line, structureType -> structure -> name, structureType -> name);
     if(structureType -> category != STRUCTURE){
-        printf("warning line %d: recreating struct but structure type not a structure\n", line);
+        fprintf(syntax_file, "warning line %d: recreating struct but structure type not a structure\n", line);
     }
     Type* temp = (Type*)malloc(sizeof(Type));
     temp -> category = STRUCTURE;
@@ -1191,7 +1192,7 @@ void recreateStruct() {
 }
 
 bool check(char* name) {
-    printf("info line %d: checking type, name: %s\n", line, name);
+    fprintf(syntax_file, "info line %d: checking type, name: %s\n", line, name);
     for (int i = scopeDepth; i >= 0; i--) {
         if(contain(scopeStack[i], name)) {
             return true;
@@ -1201,12 +1202,12 @@ bool check(char* name) {
 }
 
 Type* get(char* name) {
-    printf("info line %d: getting type, name: %s\n", line, name);
+    fprintf(syntax_file, "info line %d: getting type, name: %s\n", line, name);
     Type* result = NULL;
     for (int i = scopeDepth; i >= 0; i--) {
         result = getType(scopeStack[i], name);
         if(result != NULL) {
-            printf("info line %d: result: %s\n", line, categoryToString(result -> category));
+            fprintf(syntax_file, "info line %d: result: %s\n", line, categoryToString(result -> category));
             return result;
         }
     }
@@ -1214,25 +1215,25 @@ Type* get(char* name) {
 }
 
 void printAllTable() {
-    printf("\n------printing type table------\n\n");
+    fprintf(syntax_file, "\n------printing type table------\n\n");
     for (int i = 0; i <= scopeDepth; i++){
-        printf("Type table: %d\n\n", i);
-        printTable(scopeStack[i]);
-        printf("\n");
+        fprintf(syntax_file, "Type table: %d\n\n", i);
+        fputs(printTable(scopeStack[i]), syntax_file);
+        fprintf(syntax_file, "\n");
     }
 }
 
 Category intOperate(char* op) {
     Category exp1 = popExp() -> category, exp2 = popExp() -> category;
-    printf("info line %d: %s %s %s \n", line, categoryToString(exp1), op, categoryToString(exp2));
+    fprintf(syntax_file, "info line %d: %s %s %s \n", line, categoryToString(exp1), op, categoryToString(exp2));
     if (exp1 != INT && exp1 != FLOATNUM){
-        printf("Error type 7 at Line %d: binary operation on non-number variables\n", line);
+        fprintf(syntax_file, "Error type 7 at Line %d: binary operation on non-number variables\n", line);
     }
     if (exp2 != INT && exp2 != FLOATNUM){
-        printf("Error type 7 at Line %d: binary operation on non-number variables\n", line);
+        fprintf(syntax_file, "Error type 7 at Line %d: binary operation on non-number variables\n", line);
     }
     if (exp1 == INT && exp2 == FLOATNUM || exp1 == FLOATNUM && exp2 == INT) {
-        printf("Error type 7 at Line %d: unmatching operands\n", line);
+        fprintf(syntax_file, "Error type 7 at Line %d: unmatching operands\n", line);
     }
     if (exp1 == INT && exp2 == INT || exp1 == FLOAT && exp2 == FLOAT) {
         return exp1;
@@ -1242,7 +1243,7 @@ Category intOperate(char* op) {
 
 void boolOperate(char* op) {
     Category exp1 = popExp() -> category, exp2 = popExp() -> category;
-    printf("info line %d: %s %s %s \n", line, categoryToString(exp1), op, categoryToString(exp2));
+    fprintf(syntax_file, "info line %d: %s %s %s \n", line, categoryToString(exp1), op, categoryToString(exp2));
     pushExp(BOOLEAN, false);
 }
 
@@ -1251,29 +1252,29 @@ void handleFunction(char* name){
     CategoryList* varList1 = function -> varList;
     Type* functionType2 = get(name);
     if (functionType2 == NULL) {
-        printf("Error type 2 at Line %d: \"%s\" is invoked without a definition\n", line, name);
+        fprintf(syntax_file, "Error type 2 at Line %d: \"%s\" is invoked without a definition\n", line, name);
         pushExp(NUL, false);
         return;
     }
     if (functionType2 -> category != FUNCTION) {
-        printf("Error type 11 at Line %d: invoking non-function variable\n", line);
+        fprintf(syntax_file, "Error type 11 at Line %d: invoking non-function variable\n", line);
         pushExp(NUL, false);
         return;
     }
     int paramNum2 = functionType2 -> function -> paramNum;
     CategoryList* varList2 = functionType2 -> function -> varList;
     if (paramNum1 != paramNum2) {
-        printf("Error type 9 at Line %d: invalid argument number, except %d, got %d\n", line, paramNum2, paramNum1);
+        fprintf(syntax_file, "Error type 9 at Line %d: invalid argument number, except %d, got %d\n", line, paramNum2, paramNum1);
         return;
     }
     while (varList1 != NULL && varList2 != NULL){
         Category category1 = varList1 -> category;
         Category category2 = varList2 -> category;
-        printf("info line %d: checking category %s, %s\n", line, categoryToString(category1), categoryToString(category2));
+        fprintf(syntax_file, "info line %d: checking category %s, %s\n", line, categoryToString(category1), categoryToString(category2));
         if (category1 != NUL &&
             category2 != NUL &&
             category1 != category2){
-            printf("Error type 9 at Line %d: arguments type mismatch, except %s, got %s\n", line, categoryToString(category2), categoryToString(category1));
+            fprintf(syntax_file, "Error type 9 at Line %d: arguments type mismatch, except %s, got %s\n", line, categoryToString(category2), categoryToString(category1));
             break;
         }
         varList1 = varList1 -> next;
@@ -1281,10 +1282,10 @@ void handleFunction(char* name){
     }
 
     if (varList1 != NULL){
-        printf("warning line %d: paramnum is same, but varlist 1 longer\n", line);
+        fprintf(syntax_file, "warning line %d: paramnum is same, but varlist 1 longer\n", line);
     } 
     if (varList2 != NULL) {
-        printf("warning line %d: paramnum is same, but varlist 2 longer\n", line);
+        fprintf(syntax_file, "warning line %d: paramnum is same, but varlist 2 longer\n", line);
     }
     pushExp(functionType -> function -> returnCategory, false);
     freeFunction(function);
@@ -1295,7 +1296,7 @@ void handleFunction(char* name){
 int yyerror(const char *msg) {
     char* syntax_error = "syntax error";
     if(strcmp(msg, syntax_error) != 0){        
-        printf("error type B at Line %d:%s\n", line, msg);
+        fprintf(syntax_file, "Error type B at Line %d:%s\n", line, msg);
     }
     error = true;
     return 0;
@@ -1322,6 +1323,7 @@ int main(int argc, char **argv){
     getOutputPath(file_path, output_file_path, sizeof(output_file_path));
     output_file = fopen(output_file_path, "w");
     code_file = fopen("code.txt", "w");
+    syntax_file = fopen("syntax.txt", "w");
     if(!(yyin = fopen(file_path, "r"))){
         perror(argv[1]);
         return EXIT_FAIL;

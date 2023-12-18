@@ -93,9 +93,9 @@ Type* getType(TypeTable* typeTable, char* name);
 
 Category structureFind(TypeList* typeList, char* name);
 
-void printTable(TypeTable* typeTable);
+char* printTable(TypeTable* typeTable);
 
-void printType(Type* type);
+char* printType(Type* type);
 
 void printCategoryList(CategoryList* categoryList);
 
@@ -111,8 +111,8 @@ void freeTypeList(TypeList* typeList);
 
 void freeFunction(Function* function);
 
-bool checkTypeSame(Type* type1, Type* type2);
+// bool checkTypeSame(Type* type1, Type* type2);
 
-bool checkStructureSame(TypeList* typeList1, TypeList* typeList2);
+// bool checkStructureSame(TypeList* typeList1, TypeList* typeList2);
 #endif
 
