@@ -95,6 +95,7 @@
     void translate_Stmt_WHILE(TreeNode*);
     void translate_Args(TreeNode* Args, ListNode** arg_list);
     void translate_Args_COMMA(TreeNode* Args, ListNode** arg_list);
+    void translate_Param_Dec(TreeNode* Param);
     char* new_label();
     char* new_place();
 
@@ -262,6 +263,8 @@ ParamDec : Specifier VarDec {
     // TODO: function args struct
     $$ = createNode("ParamDec", "", $1->line, 2, $1, $2);
     handleParam();
+    // fprintf(code_file, "bug here!\n");
+    translate_Param_Dec($2);
 }
 ;
 /* statement */
@@ -770,17 +773,20 @@ void translate_Args(TreeNode* Args, ListNode** arg_list){
     }else{
         char* tp = new_place();
         translate_Exp(Args->children[0], tp);
-        fprintf(code_file, "PARAM %s\n", tp);
         insertListNode(arg_list, tp);
     }
 }
 
 void translate_Args_COMMA(TreeNode* Args, ListNode** arg_list){
+    translate_Args(Args->children[2], arg_list);
     char* tp = new_place();
     translate_Exp(Args->children[0], tp);
-    fprintf(code_file, "PARAM %s\n", tp);
     insertListNode(arg_list, tp);
-    translate_Args(Args->children[2], arg_list);
+}
+
+void translate_Param_Dec(TreeNode* Param){
+    Type* result = get(Param -> children[0] -> value);
+    fprintf(code_file, "PARAM %s\n", result -> registerName);
 }
 
 char* new_label(){
