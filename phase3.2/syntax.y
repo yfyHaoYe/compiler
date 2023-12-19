@@ -20,7 +20,6 @@
     char num[50];
     void freeTree(TreeNode* node);
     FILE* code_file;
-    FILE* syntax_file;
     FILE* debug_file;
 
     //phase2
@@ -28,58 +27,54 @@
     int scopeDepth;
     Expression* expStack[MAX_DEPTH];
     int expDepth;
-    // type: 在创建任意一个type时都创建在这里，在insert后置NULL
-    Type* type;
-    // functionType: 在创建函数时创建在这里，通过insertFunction插入，随后置NULL
-    Type* functionType;
-    // 用于在函数内调用其他函数时进行参数检查
-    Function* function;
 
+    Type* arrayType;
+    Category category;
+    Function* functionCreate;
+    Function* functionInvoke;
+    Structure* structureDef;
+    Structure* structureDec;
 
+    // 用于创建带参函数时生成参数列表
     CategoryList* cateList;
+    // 用于创建结构体时生成type列表
     TypeList* typeList;
 
-    // structureType: 在创建Structure时创建在这里，通过insertStruct插入，随后置NULL
-    Type* structureType;
-    // 用于在创建带参函数时，在识别到FunDec而非"{"时执行push
+    // 用于创建带参函数时，在识别到FunDec而非"{"时执行push
     bool declaringFunction;
-    // 用于在创建Struct时，在“}”退出时清理Typetable不free type
-    bool declaringStruct;
-    // 用于在生成Struct时，调整structType名字结构
+    // 用于创建structure定义时，插入每个type后同时添加到typelist中
     bool definingStruct;
     int tCnt = 0;
     int vCnt = 0;
     int labelCnt = 0;
 
-    void pushExp(Category exp, bool lvalue);
+    void pushExp(bool lvalue, Category exp, Type* type);
     Expression* popExp();
 
-    void init(Category category);
+    void initInsert(char* name);
     void initFunction(char* name);
     void initStruct(char* name);
     void initArray();
 
     void insert();
-    void insertFunction();
-    void insertStruct();
-    void clear();
-    void setNull();
     void clearArray();
-    void recreate();
-    void recreateStruct();
-    Category stringToCategory(char* category);
+    void handleParam();
+    void handleID(char* name);
 
-    void handleDec();
     void handleFunction(char* name);
+    void handleExpArray();
+    void handleExpFetchStructure(char* name);
 
     bool check(char* name);
     Type* get(char* name);
 
-    void freeLastTable();
+    // TODO void freeLastTable();
     void printAllTable();
 
     Category intOperate(char* op);
     void boolOperate(char* op);
+
+
     void translate_Exp(TreeNode*, char*);
     void translate_Exp_INT(TreeNode*, char*);
     void translate_Exp_ID(TreeNode*, char*);
@@ -114,7 +109,7 @@
 %type<str_line> INT CHAR
 %token<str_line> TYPE ID FLOAT DECINT HEXINT PCHAR HEXCHAR STR
 %token<str_line.line> LC RC SEMI COMMA STRUCT RETURN WHILE IF
-%type<node> Program ExtDefList ExtDef ExtDecList Specifier StructSpecifier VarDec FunDec VarList ParamDec CompSt StmtList Stmt DefList Def DecList Dec Exp Args ErrorStmt FunID StructDec
+%type<node> Program ExtDefList ExtDef ExtDecList Specifier StructSpecifier VarDec FunDec VarList ParamDec CompSt StmtList Stmt DefList Def DecList Dec Exp Args ErrorStmt FunID StructDec Array
 %nonassoc<node> LOWER
 %nonassoc<str_line.line> ELSE
 %nonassoc<str_line.line> ASSIGN
@@ -148,22 +143,14 @@ ExtDefList : ExtDef ExtDefList {
 ;
 ExtDef : Specifier ExtDecList SEMI {
     $$ = createNode("ExtDef", "", $1->line, 3, $1, $2, createNode("SEMI", "", $3, 0));
-    if(definingStruct){
-        freeType(structureType);
-        definingStruct = false;
-    }else{
-        clear();
-    }
+    category = NUL;
 }
-| // Specifier SEMI
-StructSpecifier SEMI {
+| StructSpecifier SEMI {
     $$ = createNode("ExtDef", "", $1->line, 2, $1, createNode("SEMI", "", $2, 0));
-    // default struct
 }
 | Specifier FunDec CompSt {
     $$ = createNode("ExtDef", "", $1->line, 3, $1, $2, $3);
     fprintf(syntax_file, "info line %d: function end\n", line);
-    functionType = NULL;
 }
 | Specifier error {
     yyerror(" Missing semicolon ';'");
@@ -174,41 +161,34 @@ StructSpecifier SEMI {
 ;
 ExtDecList : VarDec {
     $$ = createNode("ExtDecList", "", $1->line, 1, $1);
-    if(definingStruct){
-        insertStruct();
-        recreateStruct();
-    }else{
-        insert();
-        recreate();
-    }
 }
 | ExtDecList COMMA VarDec{
     $$ = createNode("ExtDecList", "", $1->line, 3, $1, createNode("COMMA", "", $2, 0), $3);
-    if(definingStruct){
-        insertStruct();
-        recreateStruct();
-    } else{
-        insert();
-        recreate();
-    }
 }
 ;
 /* specifier */
 Specifier : TYPE {
     $$ = createNode("Specifier", "", $1.line, 1, createNode("TYPE", $1.string, $1.line, 0));
-    init(stringToCategory($1.string));
+    category = stringToCategory($1.string);
 }
-| StructDec {
-    $$ = createNode("Specifier", "", $1->line, 1, $1);
-    declaringStruct = false;
-    definingStruct = true;
+| STRUCT ID {
+    $$ = createNode("StructDec", "", $1, 2, createNode("STRUCT", "", $1, 0), createNode("ID", $2.string, $2.line, 0));
+    Type* result = get($2.string);
+    category = STRUCTURE;
+    // TODO modify error message
+    if (result == NULL || result -> category != STRUCTURE){
+        fprintf(syntax_file, "%s not find!\n", $2.string);
+    }else {
+        structureDec = result -> structure;
+    }
 }
 ;
 
 StructSpecifier : StructDec LC DefList RC {
     $$ = createNode("StructSpecifier", "", $1 -> line, 5, $1 -> children[0], $1 -> children[1], createNode("LC", "", $2, 0), $3, createNode("RC", "", $4, 0));
-    insertStruct();
-    structureType = NULL;
+    definingStruct = false;
+    structureDef = NULL;
+    typeList = NULL;
 }
 ;
 /* declarator */
@@ -220,30 +200,41 @@ StructDec : STRUCT ID {
 
 VarDec : ID {
     $$ = createNode("VarDec", "", $1.line, 1, createNode("ID", $1.string, $1.line, 0));
-    if (definingStruct){
-        Type* result = get(structureType -> name);
-        if(!result -> category == STRUCTURE){
-            fprintf(syntax_file, "Error type ? line %d: define structure with non-struct id %s\n", line, type -> name);
-        }else{
-            structureType -> structure -> typeList = result -> structure -> typeList;
-            strcpy(structureType -> structure -> name, structureType -> name);
-            strcpy(structureType -> name, $1.string);
-        }
-    }else{
-        strcpy(type -> name, $1.string);
-        fprintf(syntax_file, "info line %d: creating VarDec, name: %s\n", line, type -> name);
-    }
+    fprintf(syntax_file, "info line %d: creating VarDec from ID, name: %s\n", line, $1.string);
+    initInsert($1.string);
 }
-| VarDec LB INT RB {
+| Array {
+    $$ = $1;
+    fprintf(syntax_file, "info line %d: creating VarDec from Array, name: %s\n", line, arrayType -> name);
+    insert(arrayType);
+    clearArray();
+}
+;
+
+Array: Array LB INT RB {
     $$ = createNode("VarDec", "", $1->line, 4, $1, createNode("LB", "", $2, 0), createNode("INT", $3.string, $3.line, 0), createNode("RB", "", $4, 0));
-    initArray(atoi($3.string));
+    initArray(arrayType -> name, atoi($3.string), arrayType); 
 }
-| VarDec LB INT error {
+| ID LB INT RB {
+    $$ = createNode("VarDec", "", $1.line, 1, createNode("ID", $1.string, $1.line, 0));
+    Type* base = (Type*)malloc(sizeof(Type));
+    strcpy(base->name,  $1.string);
+    base -> category = category;
+    base -> array = NULL;
+    initArray($1.string, atoi($3.string), base);
+}
+| Array LB INT error {
+    yyerror(" Missing closing square bracket ']'");
+}
+| ID LB INT error {
     yyerror(" Missing closing square bracket ']'");
 }
 ;
+;
+
 FunDec : FunID LP VarList RP {
     $$ = createNode("FunDec", "", $1->line, 4, $1, createNode("LP", "", $2, 0), $3, createNode("RP", "", $4, 0));
+    cateList = NULL;
 }
 |FunID LP RP {
     $$ = createNode("FunDec", $1 -> value, $1->line, 3, $1, createNode("LP", "", $2, 0), createNode("RP", "", $3, 0));
@@ -255,14 +246,9 @@ FunDec : FunID LP VarList RP {
     yyerror(" Missing closing parenthesis ')'");
 }
 ;
-// modified: add FunID
 FunID : ID {
     $$ = createNode("ID", $1.string, $1.line, 0);
     initFunction($1.string);
-    insertFunction();
-    push();
-    clear();
-    declaringFunction = true;
 }
 ;
 VarList : ParamDec COMMA VarList {
@@ -270,23 +256,12 @@ VarList : ParamDec COMMA VarList {
 }
 | ParamDec {
     $$ = createNode("VarList", "", $1->line, 1, $1);
-    cateList = NULL;
 }
 ;
 ParamDec : Specifier VarDec {
+    // TODO: function args struct
     $$ = createNode("ParamDec", "", $1->line, 2, $1, $2);
-    if (functionType -> function -> varList == NULL){
-        cateList = (CategoryList*)malloc(sizeof(CategoryList));
-        functionType -> function -> varList = cateList;
-    }else{
-        cateList -> next = (CategoryList*)malloc(sizeof(CategoryList));
-        cateList = cateList -> next;
-    }
-    cateList -> next = NULL;
-    cateList -> category = type -> category;
-    functionType -> function -> paramNum++;
-    insert();
-    setNull();
+    handleParam();
 }
 ;
 /* statement */
@@ -316,7 +291,7 @@ Stmt : Exp SEMI {
 | RETURN Exp SEMI {
     $$ = createNode("Stmt", "", $1, 3, createNode("RETURN", "", $1, 0), $2, createNode("SEMI", "", $3, 0));
     Category find = popExp() -> category;
-    Category expected = functionType -> function -> returnCategory;
+    Category expected = functionCreate -> returnCategory;
     if (find != expected){
         fprintf(syntax_file, "Error type 8 at Line %d: incompatiable return type, except: %s, got: %s\n", line, categoryToString(expected), categoryToString(find));
     }
@@ -374,12 +349,7 @@ DefList : Def DefList {
 ;
 Def : Specifier DecList SEMI {
     $$ = createNode("Def", "", $1->line, 3, $1, $2, createNode("SEMI", "", $3, 0));
-    if (definingStruct){
-        freeType(structureType);
-        definingStruct = false;
-    } else{
-        clear();
-    }
+    structureDec = NULL;
 }
 | Specifier DecList error {
     yyerror(" Missing semicolon ';'");
@@ -399,15 +369,13 @@ DecList COMMA Dec {
 ;
 Dec : VarDec {
     $$ = createNode("Dec", "", $1->line, 1, $1);
-    handleDec();
 }
 | VarDec ASSIGN Exp {
     $$ = createNode("Dec", "", $1->line, 3, $1, createNode("ASSIGN", "", $2, 0), $3);
     Category exp = popExp() -> category;
-    if (exp != NUL && type -> category != exp) {
-        fprintf(syntax_file, "Error type 5 at Line %d: unmatching type on both sides of assignment, expected %s, got %s\n", line, categoryToString(type -> category), categoryToString(exp));
+    if (exp != NUL && category != exp) {
+        fprintf(syntax_file, "Error type 5 at Line %d: unmatching type on both sides of assignment, expected %s, got %s\n", line, categoryToString(category), categoryToString(exp));
     }
-    handleDec();
     Type* cur = get($1->children[0]->value);
     translate_Exp($3, cur->registerName);
 }
@@ -425,63 +393,63 @@ Exp : Exp ASSIGN Exp {
     if (exp1 -> category != exp2 -> category) {
         fprintf(syntax_file, "Error type 5 at Line %d: unmatching type on both sides of assignment\n", line);
     }
-    pushExp(exp2 -> category, false);
+    pushExp(false, exp2 -> category, NULL);
 }
 | Exp AND Exp {
     $$ = createNode("Exp", "", $1->line, 3, $1, createNode("AND", "", $2, 0), $3);
     boolOperate("and");
-    pushExp(BOOLEAN, false);
+    pushExp(false, BOOLEAN, NULL);
 }
 | Exp OR Exp {
     $$ = createNode("Exp", "", $1->line, 3, $1, createNode("OR", "", $2, 0), $3);
     boolOperate("or");
-    pushExp(BOOLEAN, false);
+    pushExp(false, BOOLEAN, NULL);
 }
 | Exp LT Exp {
     $$ = createNode("Exp", "", $1->line, 3, $1, createNode("LT", "", $2, 0), $3);
     intOperate("less than");
-    pushExp(BOOLEAN, false);
+    pushExp(false, BOOLEAN, NULL);
 }
 | Exp LE Exp {
     $$ = createNode("Exp", "", $1->line, 3, $1, createNode("LE", "", $2, 0), $3);
     intOperate("less equal");
-    pushExp(BOOLEAN, false);
+    pushExp(false, BOOLEAN, NULL);
 }
 | Exp GT Exp {
     $$ = createNode("Exp", "", $1->line, 3, $1, createNode("GT", "", $2, 0), $3);
     intOperate("greater than");
-    pushExp(BOOLEAN, false);
+    pushExp(false, BOOLEAN, NULL);
 }
 | Exp GE Exp {
     $$ = createNode("Exp", "", $1->line, 3, $1, createNode("GE", "", $2, 0), $3);
     intOperate("greater equal");
-    pushExp(BOOLEAN, false);
+    pushExp(false, BOOLEAN, NULL);
 }
 | Exp NE Exp {
     $$ = createNode("Exp", "", $1->line, 3, $1, createNode("NE", "", $2, 0),$3);
     intOperate("not equal");
-    pushExp(BOOLEAN, false);
+    pushExp(false, BOOLEAN, NULL);
 }
 | Exp EQ Exp {
     $$ = createNode("Exp", "", $1->line, 3, $1, createNode("EQ", "", $2, 0), $3);
     intOperate("equal");
-    pushExp(BOOLEAN, false);
+    pushExp(false, BOOLEAN, NULL);
 }
 | Exp PLUS Exp {
     $$ = createNode("Exp", "", $1->line, 3, $1, createNode("PLUS", "", $2, 0), $3);
-    pushExp(intOperate("plus"), false);
+    pushExp(false, intOperate("plus"), NULL);
 }
 | Exp MINUS Exp {
     $$ = createNode("Exp", "", $1->line, 3, $1, createNode("MINUS", "", $2, 0),$3);
-    pushExp(intOperate("minus"), false);
+    pushExp(false, intOperate("minus"), NULL);
 }
 | Exp MUL Exp {
     $$ = createNode("Exp", "", $1->line, 3, $1, createNode("MUL", "", $2, 0), $3);
-    pushExp(intOperate("multiply"), false);
+    pushExp(false, intOperate("multiply"), NULL);
 }
 | Exp DIV Exp {
     $$ = createNode("Exp", "", $1->line, 3, $1, createNode("DIV", "", $2, 0), $3);
-    pushExp(intOperate("divided by"), false);
+    pushExp(false, intOperate("divided by"), NULL);
 }
 | LP Exp RP {
     $$ = createNode("Exp", "", $1, 3, createNode("LP", "", $1, 0), $2, createNode("RP", "", $3, 0));
@@ -493,112 +461,45 @@ Exp : Exp ASSIGN Exp {
     if (exp != INT && exp != FLOATNUM){
         fprintf(syntax_file, "Error type 7 at Line %d: binary operation on non-number variables\n", line);
     }
-    pushExp(INT, false);
+    pushExp(false, INT, NULL);
 }
 | NOT Exp {
     $$ = createNode("Exp", "", $1, 2, createNode("NOT", "", $1, 0), $2);
     Category exp = popExp() -> category;
     fprintf(syntax_file, "info line %d: not %s \n", line, categoryToString(exp));
-    pushExp(BOOLEAN, false);
+    pushExp(false, BOOLEAN, NULL);
 }
 | Exp LB Exp RB {
     $$ = createNode("Exp", "", $1->line, 4, $1, createNode("LB", "", $2, 0), $3, createNode("RB", "", $4, 0));
-    Category exp1 = popExp() -> category, exp2 = popExp() -> category;
-    if (exp1 != INT){
-        fprintf(syntax_file, "Error type 12 at Line %d: indexing by non-integer", line);
-    }
-    if (exp2 != ARRAY){
-        fprintf(syntax_file, "Error type 10 at line %d: indexing on non-array variable\n", line);
-    }
-    if (type -> category == ARRAY){
-        type = type -> array -> base;
-    }
-    pushExp(type -> category, true);
+    handleExpArray();
 }
 | Exp DOT ID {
     $$ = createNode("Exp", "", $1->line, 3, $1, createNode("DOT", "", $2, 0), createNode("ID", $3.string, $3.line, 0));
-    Category exp = popExp() -> category;
-    if (exp != STRUCTURE){
-        fprintf(syntax_file, "Error type 13 at Line %d: accessing with non-struct variable\n", line);
-        pushExp(NUL, true);
-    }else{
-        if (structureType == NULL){
-            // printf("something is wrong\n");
-        }
-        Category category = structureFind(structureType -> structure -> typeList, $3.string);
-        if(category == NUL){
-            fprintf(syntax_file, "Error type 14 at Line %d: accessing an undefined structure member\n", line);
-        }
-        pushExp(category, true);
-    }
+    handleExpFetchStructure($3.string);
 }
 | ID {
     $$ = createNode("Exp", "", $1.line, 1, createNode("ID", $1.string, $1.line, 0));
-    Type* result = get($1.string);
-    if (result != NULL){
-        if (result -> category == NUL) {
-            fprintf(syntax_file, "warning line %d: type had been used without definition before, name: %s\n", line, $1.string);
-            pushExp(NUL, true);
-        } else if (result -> category == ARRAY) {       
-            type = result;
-            pushExp(result -> category, true);
-        } else if (result -> category == FUNCTION){
-            fprintf(syntax_file, "Error type ? at line %d: function invoked without ()\n", line);
-            pushExp(result -> function -> returnCategory, true);
-        } else if (result -> category == STRUCTURE){
-            structureType = result;
-            pushExp(result -> category, true);
-        } else {
-            pushExp(result -> category, true);
-        }
-    } else {
-        // 
-        fprintf(syntax_file, "Error type 1 at Line %d: \"%s\" is used without a definition\n", line, $1.string);
-        Type* temp = (Type*)malloc(sizeof(TYPE));
-        strcpy(temp -> name, $1.string);
-        temp -> category = NUL;
-        temp -> structure = NULL;
-        insertIntoTypeTable(scopeStack[scopeDepth], temp);
-        printAllTable();
-        pushExp(NUL, true);
-    }
+    handleID($1.string);
 }
 | INT {
     $$ = createNode("Exp", "", $1.line, 1, createNode("INT", $1.string, $1.line, 0));
-    pushExp(INT, false);
+    pushExp(false, INT, NULL);
 }
 | FLOAT {
     $$ = createNode("Exp", "", $1.line, 1, createNode("FLOAT", $1.string, $1.line, 0));
-    pushExp(FLOATNUM, false);
+    pushExp(false, FLOATNUM, NULL);
 }
 | CHAR {
     $$ = createNode("Exp", "", $1.line, 1, createNode("CHAR", $1.string, $1.line, 0));
-    pushExp(CHAR, false);
+    pushExp(false, CHAR, NULL);
 }
 | STR {
     $$ = createNode("Exp", "", $1.line, 1, createNode("STR", $1.string, $1.line, 0));
-    pushExp(STRING, false);
+    pushExp(false, STRING, NULL);
 }
 | ID LP RP {
     $$ = createNode("Exp", "", $1.line, 3, createNode("ID", $1.string, $1.line, 0), createNode("LP", "", $1.line, 0), createNode("RP", "", $1.line, 0));
-    Type* functionType2 = get($1.string);
-    if (functionType2 == NULL){
-        fprintf(syntax_file, "Error type 2 at Line %d: \"%s\" is invoked without a definition", line, $1.string);
-        pushExp(NUL, false);
-    }else if (functionType2 -> category != FUNCTION) {
-        fprintf(syntax_file, "Error type 11 at Line %d: invoking non-function variable", line);
-        pushExp(functionType2 -> category, false);
-    }else {
-        if (functionType2 -> function -> paramNum != 0){
-            fprintf(syntax_file, "Error type 9 at Line %d: invalid argument number, except %d, got 0\n", line, functionType -> function -> paramNum);
-            pushExp(functionType2 -> function -> returnCategory, false);
-        }else {
-            pushExp(functionType2 -> function -> returnCategory, false);
-        }
-        // if (functionType2 -> function -> returnCategory == STRUCTURE){
-        //     structureType = NONONO!;
-        // }
-    } 
+    handleFunction($1.string);
     
 }
 | ID LP Args RP {
@@ -623,18 +524,19 @@ Args : Exp COMMA Args {
     $$ = createNode("Args", "", $1->line, 3, $1, createNode("COMMA", "", 0, 0), $3);
     CategoryList* last = (CategoryList*)malloc(sizeof(CategoryList));
     last -> category = popExp() -> category;
-    last -> next = function -> varList;
-    function -> varList = last;
-    function -> paramNum++;
+    last -> next = functionInvoke -> varList;
+    functionInvoke -> varList = last;
+    functionInvoke -> paramNum++;
+    
 }
 | Exp {
     $$ = createNode("Args", "", $1->line, 1, $1);
-    function = (Function*)malloc(sizeof(Function));
-    function -> paramNum = 1;
-    function -> varList = (CategoryList*) malloc(sizeof(CategoryList));
-    function -> varList -> category = popExp() -> category;
-    function -> varList -> next = NULL;
-    function -> returnCategory = NUL;
+    functionInvoke = (Function*)malloc(sizeof(Function));
+    functionInvoke -> paramNum = 1;
+    functionInvoke -> varList = (CategoryList*) malloc(sizeof(CategoryList));
+    functionInvoke -> varList -> category = popExp() -> category;
+    functionInvoke -> varList -> next = NULL;
+    functionInvoke -> returnCategory = NUL;
 }
 ;
 INT: DECINT{$$.string = strdup($1.string); $$.line = $1.line;}
@@ -648,45 +550,45 @@ CHAR: PCHAR {$$.string = strdup($1.string); $$.line = $1.line;}
 //modified: translation function
 void translate_Exp(TreeNode* Exp, char* place){
     if(strcmp(Exp->children[0]->type, "INT") == 0){
-        fprintf(debug_file, "line %d: handling Exp -> INT:%d\n", line, atoi(Exp->children[0]->value));
+        printf( "line %d: handling Exp -> INT:%d\n", line, atoi(Exp->children[0]->value));
         translate_Exp_INT(Exp->children[0], place);
     }else if(Exp->numChildren == 1 && strcmp(Exp->children[0]->type, "ID") == 0){
-        fprintf(debug_file, "line %d: handling Exp -> ID:%s\n", line, Exp->children[0]->value);
+        printf( "line %d: handling Exp -> ID:%s\n", line, Exp->children[0]->value);
         translate_Exp_ID(Exp->children[0], place);
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "ASSIGN") == 0){
-        fprintf(debug_file, "line %d: handling Exp -> Exp ASSIGN Exp\n", line);
+        printf( "line %d: handling Exp -> Exp ASSIGN Exp\n", line);
         translate_Exp_ASSIGN(Exp, place);
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "PLUS") == 0){
-        fprintf(debug_file, "line %d: handling Exp -> Exp PLUS Exp\n", line);
+        printf( "line %d: handling Exp -> Exp PLUS Exp\n", line);
         translate_Exp_NUM_OP(Exp, place, "+");
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "MINUS") == 0){
-        fprintf(debug_file, "line %d: handling Exp -> Exp MINUS Exp\n", line);
+        printf( "line %d: handling Exp -> Exp MINUS Exp\n", line);
         translate_Exp_NUM_OP(Exp, place, "-");
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "MUL") == 0){
-        fprintf(debug_file, "line %d: handling Exp -> Exp MUL Exp\n", line);
+        printf( "line %d: handling Exp -> Exp MUL Exp\n", line);
         translate_Exp_NUM_OP(Exp, place, "*");
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "DIV") == 0){
-        fprintf(debug_file, "line %d: handling Exp -> Exp DIV Exp\n", line);
+        printf( "line %d: handling Exp -> Exp DIV Exp\n", line);
         translate_Exp_NUM_OP(Exp, place, "/");
     }else if(Exp->numChildren == 2 && strcmp(Exp->children[0]->type, "MINUS") == 0){
-        fprintf(debug_file, "line %d: handling Exp -> MINUS Exp\n", line);
+        printf( "line %d: handling Exp -> MINUS Exp\n", line);
         translate_Exp_MINUS(Exp, place);
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[0]->value, "read") == 0){
-        fprintf(debug_file, "line %d: handling Exp -> read ( )\n", line);
+        printf( "line %d: handling Exp -> read ( )\n", line);
         fprintf(code_file, "READ %s\n", place);
     }else if(Exp->numChildren == 4 && strcmp(Exp->children[0]->value, "write") == 0){
-        fprintf(debug_file, "line %d: handling Exp -> write ( Exp )\n", line);
+        printf( "line %d: handling Exp -> write ( Exp )\n", line);
         char* tp = new_place();
         translate_Exp(Exp->children[2], tp);
         fprintf(code_file, "WRITE %s\n", tp);
     }else if(Exp->numChildren == 4 && strcmp(Exp->children[2]->type, "Args") == 0){
-        fprintf(debug_file, "line %d: handling Exp -> FunID:%s ( Args )\n", line, Exp->children[0]->value);
+        printf( "line %d: handling Exp -> FunID:%s ( Args )\n", line, Exp->children[0]->value);
         translate_Exp_Args(Exp, place);
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[0]->type, "LP") == 0){
-        fprintf(debug_file, "line %d: handling Exp -> ( Exp )\n", line);
+        printf( "line %d: handling Exp -> ( Exp )\n", line);
         translate_Exp(Exp->children[1], place);
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "LP") == 0){
-        fprintf(debug_file, "line %d: handling Exp -> FunID:%s ( )\n", line, Exp->children[0]->value);
+        printf( "line %d: handling Exp -> FunID:%s ( )\n", line, Exp->children[0]->value);
         translate_Exp_Func(Exp, place);
     }
 }
@@ -695,7 +597,7 @@ void translate_Exp_INT(TreeNode* INT, char* place){
     strcpy(place, "#");
     strcat(place, INT->value);
     // tCnt--;
-    // fprintf(debug_file, "Exp -> INT:%s, tCnt-- = %d", INT->value, tCnt);
+    // printf( "Exp -> INT:%s, tCnt-- = %d", INT->value, tCnt);
     fprintf(code_file, "%s := #%s\n", place, INT->value);
 }
 
@@ -703,7 +605,7 @@ void translate_Exp_ID(TreeNode* ID, char* place){
     //在type中加上此时的变量名
     char* var = get(ID->value)->registerName;
     // tCnt--;
-    // fprintf(debug_file, "Exp -> ID:%s %s, tCnt-- = %d\n", ID->value, var, tCnt);
+    // printf( "Exp -> ID:%s %s, tCnt-- = %d\n", ID->value, var, tCnt);
     // strcpy(place, var);
     fprintf(code_file, "%s := %s\n", place, var);
 }
@@ -868,6 +770,7 @@ void translate_Args(TreeNode* Args, ListNode** arg_list){
     }else{
         char* tp = new_place();
         translate_Exp(Args->children[0], tp);
+        fprintf(code_file, "PARAM %s\n", tp);
         insertListNode(arg_list, tp);
     }
 }
@@ -875,6 +778,7 @@ void translate_Args(TreeNode* Args, ListNode** arg_list){
 void translate_Args_COMMA(TreeNode* Args, ListNode** arg_list){
     char* tp = new_place();
     translate_Exp(Args->children[0], tp);
+    fprintf(code_file, "PARAM %s\n", tp);
     insertListNode(arg_list, tp);
     translate_Args(Args->children[2], arg_list);
 }
@@ -887,10 +791,11 @@ char* new_label(){
 
 char* new_place(){
     char* place = (char*)malloc(10*sizeof(char));
-    sprintf(place, "t%d", tCnt++);
-    fprintf(debug_file, "line %d: new place %d\n", line, tCnt);
+    sprintf(place, "t%d", tCnt);
+    printf( "line %d: new place %d\n", line, tCnt++);
     return place;
 }
+
 // phase1
 TreeNode* createNode(char* type, char* value, int line, int numChildren, ...) {
     TreeNode* newNode = (TreeNode*)malloc(sizeof(TreeNode));
@@ -1001,25 +906,28 @@ void pop(){
         fprintf(syntax_file, "warning line %d: Scope stack is empty, can't pop!\n", line);
         return;
     }
-    fprintf(syntax_file, "\nBefore:\n");
+    fprintf(syntax_file, "\nBefore:");
     printAllTable();
-    if (!declaringStruct){
-        freeTypeTable(scopeStack[scopeDepth]);
-    }
+    // TODO clearLastTable();
     scopeDepth--;
-    fprintf(syntax_file, "\nAfter:\n");
+    fprintf(syntax_file, "After:");
     printAllTable();
 }
 
-void pushExp(Category exp, bool lvalue) {
-    fprintf(syntax_file, "info line %d: pushing exp %s\n", line, categoryToString(exp));
-    if (expDepth == MAX_DEPTH - 1) {
+void pushExp(bool lvalue, Category exp, Type* type) {
+        if (expDepth == MAX_DEPTH - 1) {
         fprintf(syntax_file, "warning line %d: Exp depth exceed, can't push!\n", line);
     }
     Expression* expression = (Expression*)malloc(sizeof(Expression));
-    expression -> category = exp;
-    expression -> lvalue = lvalue; 
     expStack[expDepth++] = expression;
+    expression -> lvalue = lvalue;
+    expression -> category = exp;
+    expression -> type = type;
+    if(type!=NULL){
+        fprintf(syntax_file, "info line %d: pushing exp %s %s\n", line, categoryToString(expression -> category), type->name);
+    }else{
+        fprintf(syntax_file, "info line %d: pushing exp %s\n", line, categoryToString(expression -> category));
+    }
 }
 
 Expression* popExp() {
@@ -1032,175 +940,105 @@ Expression* popExp() {
     return expression;
 }
 
-void init(Category category) {
+void initInsert(char* name) {
     fprintf(syntax_file, "info line %d: initing type, category: %s\n", line, categoryToString(category));
-    if (type != NULL){
-        fprintf(syntax_file, "warning line %d: type isn't correctly clear! name: %s, category: %s\n", line, type -> name, categoryToString(type -> category));
-    }
-    type = (Type*) malloc(sizeof(Type));
+    Type* type = (Type*) malloc(sizeof(Type));
+    strcpy(type -> name, name);
     type -> category = category;
-    strcpy(type -> name, "default\0");
-    type -> structure = NULL;
+    if (category == STRUCTURE){
+        type -> structure = structureDec;
+    }else {
+        type -> structure = NULL;
+    }
     strcpy(type -> registerName, new_place());
-    if (category != ARRAY) {
+    insert(type);
+    if (!definingStruct) {
         return;
     }
-    fprintf(syntax_file, "warning line %d: initing an array\n", line);
-    type -> array = (Array*)malloc(sizeof(Array));
-    type -> array -> base = NULL;
-    type -> array -> size = 0;    
+    fprintf(syntax_file, "creating struct var! %s.%s\n", structureDef->name, type->name);
+    if (typeList == NULL){
+        typeList = (TypeList*)malloc(sizeof(TypeList));
+        structureDef -> typeList = typeList;
+    }else{
+        typeList -> next = (TypeList*)malloc(sizeof(TypeList));
+        typeList = typeList -> next;
+    }
+    typeList -> next = NULL;
+    typeList -> type = type;
+    structureDef -> typeNum++;
 }
 
 void initFunction(char* name) {
     fprintf(syntax_file, "info line %d: initing function name: %s\n", line, name);
-    if (functionType != NULL){
-        fprintf(syntax_file, "warning line %d: function type isn't correctly clear! %s %s\n", line, categoryToString(functionType -> category), functionType-> name);
-    }
     if (strcmp(name, "write")!=0&&strcmp(name,"read")!=0){
         fprintf(code_file, "FUNCTION %s :\n", name);
     }
-    functionType = (Type*)malloc(sizeof(Type));
-    functionType -> category = FUNCTION;
+    Type* functionType = (Type*)malloc(sizeof(Type));
     strcpy(functionType -> name, name);
-    functionType -> function = (Function*) malloc(sizeof(Function));
-    functionType -> function -> paramNum = 0;
-    functionType -> function -> varList = NULL;
-    functionType -> function -> returnCategory = type -> category;
+    functionType -> category = FUNCTION;
+    functionCreate = (Function*) malloc(sizeof(Function));
+    functionType -> function = functionCreate;
+    functionCreate -> paramNum = 0;
+    functionCreate -> varList = NULL;
+    functionCreate -> returnCategory = category;
+    insert(functionType);
+    push();
+    declaringFunction = true;
     // tCnt--;
-    // fprintf(debug_file, "creating function %s, tCnt-- = %d\n", name, tCnt);
+    // printf( "creating function %s, tCnt-- = %d\n", name, tCnt);
 }
 
 void initStruct(char* name){
     fprintf(syntax_file, "info line %d: initing struct, name: %s\n", line, name);
-    if (structureType != NULL){
-        fprintf(syntax_file, "warning line %d: struct isn't correctly clear! name: %s\n", line, type -> name);
-    }
-    structureType = (Type*) malloc(sizeof(Type));
+    Type* structureType = (Type*) malloc(sizeof(Type));
     strcpy(structureType -> name, name);
     structureType -> category = STRUCTURE;
-    structureType -> structure = (Structure*) malloc(sizeof(Structure));
-    strcpy(structureType -> structure -> name, "default");
-    structureType -> structure -> typeList = NULL;
-    declaringStruct = true;
+    structureDef = (Structure*) malloc(sizeof(Structure));
+    structureDef -> typeNum = 0;
+    strcpy(structureDef -> name, name);
+    structureDef -> typeList = NULL;
+    structureType -> structure = structureDef;
+    insert(structureType);
+    definingStruct = true;
 }
 
-void handleDec(){
-    if (declaringStruct) {
-        if(typeList == NULL){
-            typeList = (TypeList*)malloc(sizeof(TypeList));
-            structureType -> structure -> typeList = typeList;
-        } else {
-            typeList -> next = (TypeList*) malloc(sizeof(TypeList));
-            typeList = typeList -> next;
-        }
-        typeList -> next = NULL;
-        typeList -> type = type;
-    }
-    insert();
-    recreate();
-}
-
-void initArray(int size){
-    fprintf(syntax_file, "info line %d: initing array, name: %s\n", line, type -> name);
-    Array* array = (Array*)malloc(sizeof(Array));
-    array -> base = type;
-    array -> size = size;
-    type = (Type*)malloc(sizeof(Type));
-    strcpy(type -> name, array -> base -> name);
-    type -> category = ARRAY;
-    type -> array = array;
-}
-
-void insert() {
-    if (definingStruct) {
-        insertStruct();
-        return;
-    }
-    fprintf(syntax_file, "info line %d: inserting type: %s %s\n", line, categoryToString(type -> category), type -> name);
-    if (check(type -> name)) {
-        Type* t = get(type -> name);
-        if (t -> category == NUL) {
-            t -> category = type -> category;
-            fprintf(syntax_file, "warning line %d, recovering %s used but not declared upon\n", line, type -> name);
+void insert(Type* type) {
+    if(type->category == FUNCTION){
+        fprintf(syntax_file, "info line %d: inserting function: %s\n", line, type -> name);
+        if (check(type -> name)){
+            fprintf(syntax_file, "Error type 4 at Line %d: \"%s\" is redefined\n", line, type -> name);
             return;
         }
-        fprintf(syntax_file, "Error type 3 at Line %d: variable \"%s\" is redefined in the same scope\n", line, type -> name);
+    }else if (type -> category == STRUCTURE) {
+        fprintf(syntax_file, "info line %d: inserting structure, struct %s %s\n", line, type -> structure -> name, type -> name);
+        if (check(type -> name)) {
+            fprintf(syntax_file, "Error type 15 at Line %d: redefine the same structure type\n", line);
+            return;
+        }    
+        insertIntoTypeTable(scopeStack[scopeDepth-1], type);
         return;
+    }else {
+        fprintf(syntax_file, "info line %d: inserting type: %s %s\n", line, categoryToString(type -> category), type -> name);
+        if (check(type -> name)) {
+            fprintf(syntax_file, "Error type 3 at Line %d: variable \"%s\" is redefined in the same scope\n", line, type -> name);
+            return;
+        }
     }
+    
     insertIntoTypeTable(scopeStack[scopeDepth], type);
     printAllTable();
 }
 
-void insertFunction(){
-    fprintf(syntax_file, "info line %d: inserting function: %s\n", line, functionType -> name);
-    if (check(functionType -> name) && get(functionType -> name) -> category == FUNCTION){
-        fprintf(syntax_file, "Error type 4 at Line %d: \"%s\" is redefined\n", line, functionType -> name);
-        return;
-    }
-    insertIntoTypeTable(scopeStack[scopeDepth], functionType);
-    printAllTable();
-}
-
-void insertStruct(){
-    fprintf(syntax_file, "info line %d: inserting structure, struct %s %s\n", line, structureType -> structure -> name, structureType -> name);
-    if (check(structureType -> name) && get(structureType -> name) -> category == STRUCTURE) {
-        fprintf(syntax_file, "Error type 15 at Line %d: redefine the same structure type\n", line);
-        return;
-    }
-    insertIntoTypeTable(scopeStack[scopeDepth], structureType);
-    printAllTable();
-    declaringStruct = false;
-}
-
-void clear(){
-    fprintf(syntax_file, "info line %d: clearing type, %s %s\n", line, categoryToString(type -> category), type -> name);
-    freeType(type);
-    type = NULL;
-}
-
-void setNull() {
-    fprintf(syntax_file, "info line %d: setting type to NULL, current: %s %s\n", line, categoryToString(type -> category), type -> name);
-    type = NULL;
-}
-
 void clearArray() {
-    fprintf(syntax_file, "info line %d: clearing array, name: %s\n", line, type -> name);
-    while(type -> category == ARRAY){
-        type = type -> array -> base;
+    fprintf(syntax_file, "info line %d: clearing array, name: %s\n", line, arrayType -> name);
+    Type* temp = arrayType;
+    while(temp != NULL){
+        temp = arrayType -> array -> base;
+        free(arrayType -> array);
+        free(arrayType);
+        arrayType = temp;
     }
-}
-
-void recreate() {
-    if (definingStruct) {
-        recreateStruct();
-        return;
-    }
-    fprintf(syntax_file, "info line %d: recreating type, %s %s\n", line, categoryToString(type -> category), type -> name);
-    if (type -> category == ARRAY) {
-        clearArray();
-    }
-    if(type -> category == STRUCTURE){
-        fprintf(syntax_file, "warning line %d: recreating and the type is a structure\n", line);
-    }
-    Type* temp = (Type*)malloc(sizeof(Type));
-    temp -> category = type -> category;
-    strcpy(temp -> name, "default\0");
-    type -> structure = NULL;
-    type = temp;
-    strcpy(type -> registerName, new_place());
-
-}
-
-void recreateStruct() {
-    fprintf(syntax_file, "info line %d: recreating struct, %s %s\n", line, structureType -> structure -> name, structureType -> name);
-    if(structureType -> category != STRUCTURE){
-        fprintf(syntax_file, "warning line %d: recreating struct but structure type not a structure\n", line);
-    }
-    Type* temp = (Type*)malloc(sizeof(Type));
-    temp -> category = STRUCTURE;
-    strcpy(temp -> name, "default\0");
-    temp -> structure = structureType -> structure;
-    structureType = temp;
+    arrayType = NULL;
 }
 
 bool check(char* name) {
@@ -1230,7 +1068,7 @@ void printAllTable() {
     fprintf(syntax_file, "\n------printing type table------\n\n");
     for (int i = 0; i <= scopeDepth; i++){
         fprintf(syntax_file, "Type table: %d\n\n", i);
-        fputs(printTable(scopeStack[i]), syntax_file);
+        printTable(scopeStack[i]);
         fprintf(syntax_file, "\n");
     }
 }
@@ -1238,10 +1076,10 @@ void printAllTable() {
 Category intOperate(char* op) {
     Category exp1 = popExp() -> category, exp2 = popExp() -> category;
     fprintf(syntax_file, "info line %d: %s %s %s \n", line, categoryToString(exp1), op, categoryToString(exp2));
-    if (exp1 != INT && exp1 != FLOATNUM){
+    if (exp1 != INT && exp1 != FLOATNUM && exp1 != NUL){
         fprintf(syntax_file, "Error type 7 at Line %d: binary operation on non-number variables\n", line);
     }
-    if (exp2 != INT && exp2 != FLOATNUM){
+    if (exp2 != INT && exp2 != FLOATNUM && exp2 != NUL){
         fprintf(syntax_file, "Error type 7 at Line %d: binary operation on non-number variables\n", line);
     }
     if (exp1 == INT && exp2 == FLOATNUM || exp1 == FLOATNUM && exp2 == INT) {
@@ -1256,53 +1094,71 @@ Category intOperate(char* op) {
 void boolOperate(char* op) {
     Category exp1 = popExp() -> category, exp2 = popExp() -> category;
     fprintf(syntax_file, "info line %d: %s %s %s \n", line, categoryToString(exp1), op, categoryToString(exp2));
-    pushExp(BOOLEAN, false);
+    pushExp(false, BOOLEAN, NULL);
 }
 
 void handleFunction(char* name){
-    int paramNum1 = function -> paramNum;
-    CategoryList* varList1 = function -> varList;
-    Type* functionType2 = get(name);
-    if (functionType2 == NULL) {
+    Type* functionType = get(name);
+    if (functionType == NULL) {
         fprintf(syntax_file, "Error type 2 at Line %d: \"%s\" is invoked without a definition\n", line, name);
-        pushExp(NUL, false);
+        pushExp(false, NUL, NULL);
         return;
     }
-    if (functionType2 -> category != FUNCTION) {
+    if (functionType -> category != FUNCTION) {
         fprintf(syntax_file, "Error type 11 at Line %d: invoking non-function variable\n", line);
-        pushExp(NUL, false);
+        pushExp(false, NUL, NULL);
         return;
     }
-    int paramNum2 = functionType2 -> function -> paramNum;
-    CategoryList* varList2 = functionType2 -> function -> varList;
+    int paramNum1 = functionType -> function -> paramNum;
+    CategoryList* varList1 = functionType -> function -> varList;
+
+    if(functionInvoke == NULL){
+        // 无参函数
+        pushExp(false, functionType -> function -> returnCategory, NULL);
+
+        // TODO: function return structure!;
+        return;
+    }
+    
+    int paramNum2 = functionInvoke -> paramNum;
+    CategoryList* varList2 = functionInvoke -> varList;
     if (paramNum1 != paramNum2) {
-        fprintf(syntax_file, "Error type 9 at Line %d: invalid argument number, except %d, got %d\n", line, paramNum2, paramNum1);
+        fprintf(syntax_file, "Error type 9 at Line %d: invalid argument number, except %d, got %d\n", line, paramNum1, paramNum2);
+        pushExp(false, functionType -> function -> returnCategory, NULL);
         return;
     }
     while (varList1 != NULL && varList2 != NULL){
         Category category1 = varList1 -> category;
         Category category2 = varList2 -> category;
         fprintf(syntax_file, "info line %d: checking category %s, %s\n", line, categoryToString(category1), categoryToString(category2));
-        if (category1 != NUL &&
-            category2 != NUL &&
+        if (
+            category1 != NUL&&
+            category2 != NUL&&
             category1 != category2){
-            fprintf(syntax_file, "Error type 9 at Line %d: arguments type mismatch, except %s, got %s\n", line, categoryToString(category2), categoryToString(category1));
+            fprintf(syntax_file, "Error type 9 at Line %d: arguments type mismatch, except %s, got %s\n", line, categoryToString(category1), categoryToString(category2));
             break;
         }
         varList1 = varList1 -> next;
         varList2 = varList2 -> next;
     }
+    pushExp(false, functionType -> function -> returnCategory, NULL);
+    freeFunction(functionInvoke);
+    functionInvoke = NULL;
+    functionType = NULL;
+}
 
-    if (varList1 != NULL){
-        fprintf(syntax_file, "warning line %d: paramnum is same, but varlist 1 longer\n", line);
-    } 
-    if (varList2 != NULL) {
-        fprintf(syntax_file, "warning line %d: paramnum is same, but varlist 2 longer\n", line);
+void initArray(char* name, int size, Type* base) {
+    fprintf(syntax_file, "info line %d: initing array, size: %d\n", line, size);
+    arrayType = (Type*)malloc(sizeof(Type));
+    strcpy(arrayType -> name, name);
+    arrayType -> category = ARRAY;
+    arrayType -> array = NULL;
+    if (size == 0){
+        return;
     }
-    pushExp(functionType -> function -> returnCategory, false);
-    freeFunction(function);
-    function = NULL;
-    functionType2 = NULL;
+    arrayType -> array = (Array*)malloc(sizeof(Array));
+    arrayType -> array -> size = size;
+    arrayType -> array -> base = base;
 }
 
 int yyerror(char *msg) {
@@ -1319,8 +1175,7 @@ int main(int argc, char **argv){
     
     scopeStack[0] = (TypeTable*)malloc(sizeof(TypeTable));
     scopeDepth = 0;
-    // memset(typeTable -> isFilled, 0, sizeof(typeTable -> isFilled));
-    
+
     if (argc < 2){
         fprintf(stderr, "Usage: %s <file_path>\n", argv[0]);
         return EXIT_FAIL;
@@ -1342,23 +1197,92 @@ int main(int argc, char **argv){
         return EXIT_FAIL;
     }
 
-    init(INT);
+    category = INT;
     initFunction("read");
-    insertFunction();
-    clear();
-    functionType = NULL;
 
-    init(NUL);
+    category = NUL;
     initFunction("write");
-    functionType -> function -> paramNum = 1;
-    functionType -> function -> varList = (CategoryList*)malloc(sizeof(CategoryList));
-    functionType -> function -> varList -> category = INT;
-    functionType -> function -> varList -> next = NULL;
-    insertFunction();
-    clear();
-    functionType = NULL;
+    functionCreate -> paramNum = 1;
+    functionCreate -> varList = (CategoryList*)malloc(sizeof(CategoryList));
+    functionCreate -> varList -> category = INT;
+    functionCreate -> varList -> next = NULL;
+
+    category = NUL;
+    functionCreate = NULL;
 
     yyparse();
     fclose(output_file);
     return EXIT_OK;
+}
+
+void handleParam(){
+    if (cateList == NULL){
+        cateList = (CategoryList*)malloc(sizeof(CategoryList));
+        functionCreate -> varList = cateList;
+    }else{
+        cateList -> next = (CategoryList*)malloc(sizeof(CategoryList));
+        cateList = cateList -> next;
+    }
+    cateList -> next = NULL;
+    cateList -> category = category;
+    functionCreate -> paramNum++;
+}
+
+void handleID(char* name){
+    Type* result = get(name);
+    if (result == NULL){
+        fprintf(syntax_file, "Error type 1 at Line %d: \"%s\" is used without a definition\n", line, name);
+        pushExp(true, NUL, NULL);
+        return;
+    }
+
+    if (result -> category == NUL) {
+        fprintf(syntax_file, "Error type 2 at line %d: type had been used without definition before, name: %s\n", line, name);
+        pushExp(true, NUL, result);
+    } else if (result -> category == ARRAY) {
+        pushExp(true, ARRAY, result);
+    } else if (result -> category == STRUCTURE){
+        pushExp(true, STRUCTURE, result);
+    } else if (result -> category == FUNCTION){
+        fprintf(syntax_file, "Error type 11 at line %d: function invoked without ()\n", line);
+        pushExp(true, result -> function -> returnCategory, result);
+    } else {
+        pushExp(true, result -> category, result);
+    }
+}
+
+void handleExpArray(){
+    Expression* exp1 = popExp();
+    Expression* exp2 = popExp();
+    if (exp2 -> category != ARRAY){
+        fprintf(syntax_file, "Error type 10 at line %d: indexing on non-array variable\n", line);
+        pushExp(true, exp2 -> category, NULL);
+        return;
+    }
+    if (exp1 -> category != INT){
+        fprintf(syntax_file, "Error type 12 at Line %d: indexing by non-integer\n", line);
+    }
+    Type* base = exp2 -> type -> array -> base;
+    pushExp(true, base -> category, base);
+}
+
+void handleExpFetchStructure(char* name) {
+    Expression* exp = popExp();
+    if (exp -> category != STRUCTURE){
+        fprintf(syntax_file, "Error type 13 at Line %d: accessing with non-struct variable\n", line);
+        pushExp(exp->lvalue, NUL, NULL);
+        return;
+    }
+    Type* structureType = exp -> type;
+    if (structureType == NULL){
+        // TODO: fprintf(syntax_file, "something is wrong\n");
+    }
+    Type* result = structureFind(structureType -> structure -> typeList, name);
+    if(result == NULL){
+        fprintf(syntax_file, "Error type 14 at Line %d: accessing an undefined structure member %s.%s\n", line, structureType->name, name);
+        pushExp(exp->lvalue, NUL, NULL);
+        return;
+    }
+    pushExp(exp -> lvalue, result -> category, result);
+    
 }

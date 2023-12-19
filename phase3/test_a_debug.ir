@@ -1,0 +1,86 @@
+line 1: new place 1
+line 1: new place 2
+line 1: new place 3
+line 1: new place 4
+line 1: new place 5
+line 3: new place 6
+line 3: handling Exp -> Exp MINUS Exp
+line 3: new place 7
+line 3: new place 8
+line 3: handling Exp -> ID:x
+line 3: handling Exp -> Exp MUL Exp
+line 3: new place 9
+line 3: new place 10
+line 3: handling Exp -> ( Exp )
+line 3: handling Exp -> Exp DIV Exp
+line 3: new place 11
+line 3: new place 12
+line 3: handling Exp -> ID:x
+line 3: handling Exp -> ID:n
+line 3: handling Exp -> ID:n
+line 6: new place 13
+line 6: new place 14
+line 7: new place 15
+line 7: new place 16
+line 7: handling Exp -> INT:0
+line 8: new place 17
+line 8: new place 18
+line 8: handling Exp -> ID:num
+line 9: new place 19
+line 9: new place 20
+line 9: handling Exp -> INT:0
+line 11: handling Exp -> Exp ASSIGN Exp
+line 11: new place 21
+line 11: handling Exp -> FunID:mod ( Args )
+line 11: new place 22
+line 11: handling Exp -> ID:num
+line 11: new place 23
+line 11: handling Exp -> INT:10
+line 12: handling Exp -> Exp ASSIGN Exp
+line 12: new place 24
+line 12: handling Exp -> Exp PLUS Exp
+line 12: new place 25
+line 12: new place 26
+line 12: handling Exp -> Exp MUL Exp
+line 12: new place 27
+line 12: new place 28
+line 12: handling Exp -> ID:reversed
+line 12: handling Exp -> INT:10
+line 12: handling Exp -> ID:digit
+line 13: handling Exp -> Exp ASSIGN Exp
+line 13: new place 29
+line 13: handling Exp -> Exp DIV Exp
+line 13: new place 30
+line 13: new place 31
+line 13: handling Exp -> ID:num
+line 13: handling Exp -> INT:10
+line 14: new place 32
+line 14: new place 33
+line 14: handling Exp -> ID:num
+line 14: handling Exp -> INT:0
+line 16: new place 34
+line 16: handling Exp -> INT:1
+line 18: new place 35
+line 18: handling Exp -> INT:0
+line 19: new place 36
+line 19: new place 37
+line 19: handling Exp -> ID:reversed
+line 19: handling Exp -> ID:original
+line 22: new place 38
+line 23: new place 39
+line 23: new place 40
+line 24: handling Exp -> Exp ASSIGN Exp
+line 24: new place 41
+line 24: handling Exp -> read ( )
+line 26: handling Exp -> write ( Exp )
+line 26: new place 42
+line 28: handling Exp -> write ( Exp )
+line 28: new place 43
+line 29: new place 44
+line 29: new place 45
+line 29: handling Exp -> FunID:isPalindrome ( Args )
+line 29: new place 46
+line 29: handling Exp -> ID:number
+line 29: handling Exp -> INT:1
+line 31: new place 47
+line 31: handling Exp -> INT:0
