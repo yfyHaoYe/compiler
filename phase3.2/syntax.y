@@ -597,8 +597,8 @@ void translate_Exp(TreeNode* Exp, char* place){
 }
 
 void translate_Exp_INT(TreeNode* INT, char* place){
-    strcpy(place, "#");
-    strcat(place, INT->value);
+    /* strcpy(place, "#");
+    strcat(place, INT->value); */
     // tCnt--;
     // printf( "Exp -> INT:%s, tCnt-- = %d", INT->value, tCnt);
     fprintf(code_file, "%s := #%s\n", place, INT->value);
@@ -656,7 +656,8 @@ void translate_Exp_Args(TreeNode* Exp, char* place){
         current = current -> next;
     }
     char* name = Exp -> children[0] -> value;
-    fprintf(code_file, "CALL %s\n", name);
+    char* tp = new_place();
+    fprintf(code_file, "tp := CALL %s\n", name);
 }
 
 void translate_Exp_Func(TreeNode* Exp, char* place){
