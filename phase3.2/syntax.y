@@ -46,6 +46,7 @@
     bool definingStruct;
     int tCnt = 0;
     int vCnt = 0;
+    int aCnt = 0;
     int labelCnt = 0;
 
     void pushExp(bool lvalue, Category exp, Type* type);
@@ -97,7 +98,7 @@
     void translate_Args_COMMA(TreeNode* Args, ListNode** arg_list);
     void translate_Param_Dec(TreeNode* Param);
     char* new_label();
-    char* new_place();
+    char* new_place(char kind);
 
 %}
 %union {
@@ -282,10 +283,9 @@ StmtList : Stmt StmtList {
 ;
 Stmt : Exp SEMI {
     $$ = createNode("Stmt", "", $1->line, 2, $1, createNode("SEMI", "", $2, 0));
-    // modified
-    // translate_Exp($1, "default");
-    char* place = new_place();
-    translate_Exp($1, place);
+    translate_Exp($1, "default");
+    // char* place = new_place('t');
+    // translate_Exp($1, place);
     popExp();
 }
 | CompSt {
@@ -553,84 +553,91 @@ CHAR: PCHAR {$$.string = strdup($1.string); $$.line = $1.line;}
 //modified: translation function
 void translate_Exp(TreeNode* Exp, char* place){
     if(strcmp(Exp->children[0]->type, "INT") == 0){
-        printf( "line %d: handling Exp -> INT:%d\n", line, atoi(Exp->children[0]->value));
+        // INT
+        // printf( "line %d: handling Exp -> INT:%d\n", line, atoi(Exp->children[0]->value));
         translate_Exp_INT(Exp->children[0], place);
     }else if(Exp->numChildren == 1 && strcmp(Exp->children[0]->type, "ID") == 0){
-        printf( "line %d: handling Exp -> ID:%s\n", line, Exp->children[0]->value);
+        // ID
+        // printf( "line %d: handling Exp -> ID:%s\n", line, Exp->children[0]->value);
         translate_Exp_ID(Exp->children[0], place);
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "ASSIGN") == 0){
-        printf( "line %d: handling Exp -> Exp ASSIGN Exp\n", line);
+        // Exp ASSIGN Exp
+        // printf( "line %d: handling Exp -> Exp ASSIGN Exp\n", line);
         translate_Exp_ASSIGN(Exp, place);
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "PLUS") == 0){
-        printf( "line %d: handling Exp -> Exp PLUS Exp\n", line);
+        // Exp PLUS Exp
+        // printf( "line %d: handling Exp -> Exp PLUS Exp\n", line);
         translate_Exp_NUM_OP(Exp, place, "+");
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "MINUS") == 0){
-        printf( "line %d: handling Exp -> Exp MINUS Exp\n", line);
+        // Exp MINUS Exp
+        // printf( "line %d: handling Exp -> Exp MINUS Exp\n", line);
         translate_Exp_NUM_OP(Exp, place, "-");
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "MUL") == 0){
-        printf( "line %d: handling Exp -> Exp MUL Exp\n", line);
+        // Exp MUL Exp
+        // printf( "line %d: handling Exp -> Exp MUL Exp\n", line);
         translate_Exp_NUM_OP(Exp, place, "*");
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "DIV") == 0){
-        printf( "line %d: handling Exp -> Exp DIV Exp\n", line);
+        // Exp DIV Exp
+        // printf( "line %d: handling Exp -> Exp DIV Exp\n", line);
         translate_Exp_NUM_OP(Exp, place, "/");
     }else if(Exp->numChildren == 2 && strcmp(Exp->children[0]->type, "MINUS") == 0){
-        printf( "line %d: handling Exp -> MINUS Exp\n", line);
+        // MINUS Exp
+        // printf( "line %d: handling Exp -> MINUS Exp\n", line);
         translate_Exp_MINUS(Exp, place);
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[0]->value, "read") == 0){
-        printf( "line %d: handling Exp -> read ( )\n", line);
+        // printf( "line %d: handling Exp -> read ( )\n", line);
         fprintf(code_file, "READ %s\n", place);
     }else if(Exp->numChildren == 4 && strcmp(Exp->children[0]->value, "write") == 0){
-        printf( "line %d: handling Exp -> write ( Exp )\n", line);
-        char* tp = new_place();
+        // WRITE Exp
+        // printf( "line %d: handling Exp -> write ( Exp )\n", line);
+        char* tp = new_place('t');
         translate_Exp(Exp->children[2], tp);
         fprintf(code_file, "WRITE %s\n", tp);
     }else if(Exp->numChildren == 4 && strcmp(Exp->children[2]->type, "Args") == 0){
-        printf( "line %d: handling Exp -> FunID:%s ( Args )\n", line, Exp->children[0]->value);
+        // ID ( Args )
+        // printf( "line %d: handling Exp -> FunID:%s ( Args )\n", line, Exp->children[0]->value);
         translate_Exp_Args(Exp, place);
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[0]->type, "LP") == 0){
-        printf( "line %d: handling Exp -> ( Exp )\n", line);
+        // ( Exp )
+        // printf( "line %d: handling Exp -> ( Exp )\n", line);
         translate_Exp(Exp->children[1], place);
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "LP") == 0){
-        printf( "line %d: handling Exp -> FunID:%s ( )\n", line, Exp->children[0]->value);
+        //  ID ( )
+        // printf( "line %d: handling Exp -> FunID:%s ( )\n", line, Exp->children[0]->value);
         translate_Exp_Func(Exp, place);
     }
 }
 
 void translate_Exp_INT(TreeNode* INT, char* place){
-    /* strcpy(place, "#");
-    strcat(place, INT->value); */
-    // tCnt--;
-    // printf( "Exp -> INT:%s, tCnt-- = %d", INT->value, tCnt);
-    fprintf(code_file, "%s := #%s\n", place, INT->value);
+    sprintf(place, "#%s", INT->value);
+    // fprintf(code_file, "%s := #%s\n", place, INT->value);
 }
 
 void translate_Exp_ID(TreeNode* ID, char* place){
     //在type中加上此时的变量名
     char* var = get(ID->value)->registerName;
-    // tCnt--;
-    // printf( "Exp -> ID:%s %s, tCnt-- = %d\n", ID->value, var, tCnt);
-    // strcpy(place, var);
-    fprintf(code_file, "%s := %s\n", place, var);
+    strcpy(place, var);
+    // fprintf(code_file, "%s := %s\n", place, var);
 }
 
 void translate_Exp_ASSIGN(TreeNode* Exp, char* place){
     char* var1 = get(Exp->children[0]->children[0]->value)->registerName;
-    char* var2 = new_place();
+    char* var2 = new_place('t');
     translate_Exp(Exp->children[2], var2);
     fprintf(code_file, "%s := %s\n", var1, var2);
     fprintf(code_file, "%s := %s\n", place, var1);
 }
 
 void translate_Exp_NUM_OP(TreeNode* Exp, char* place, char* op){
-    char* tp1 = new_place();
-    char* tp2 = new_place();
+    char* tp1 = new_place('t');
+    char* tp2 = new_place('t');
     translate_Exp(Exp->children[0], tp1);
     translate_Exp(Exp->children[2], tp2);
     fprintf(code_file, "%s := %s %s %s\n", place, tp1, op, tp2);  
 }
 
 void translate_Exp_MINUS(TreeNode* Exp, char* place){
-    char* tp = new_place();
+    char* tp = new_place('t');
     translate_Exp(Exp->children[1], tp);
     fprintf(code_file, "%s := #0 - %s", place, tp);
 }
@@ -656,7 +663,7 @@ void translate_Exp_Args(TreeNode* Exp, char* place){
         current = current -> next;
     }
     char* name = Exp -> children[0] -> value;
-    char* tp = new_place();
+    char* tp = new_place('a');
     fprintf(code_file, "tp := CALL %s\n", name);
 }
 
@@ -691,8 +698,8 @@ void translate_cond_Exp(TreeNode* Exp, char* lb_t, char* lb_f){
 }
 
 void translate_cond_Exp_BOOL_OP(TreeNode* Exp, char* lb_t, char* lb_f, char* op){
-    char* tp1 = new_place();
-    char* tp2 = new_place();
+    char* tp1 = new_place('t');
+    char* tp2 = new_place('t');
     translate_Exp(Exp->children[0], tp1);
     translate_Exp(Exp->children[2], tp2);
     fprintf(code_file, "IF %s %s %s GOTO %s\n", tp1, op, tp2, lb_t);
@@ -727,7 +734,7 @@ void translate_Stmt(TreeNode* Stmt){
 }
 
 void translate_Stmt_RETURN(TreeNode* Stmt){
-    char* tp = new_place();
+    char* tp = new_place('t');
     translate_Exp(Stmt->children[1], tp);
     fprintf(code_file, "RETURN %s\n", tp);
 }
@@ -772,7 +779,7 @@ void translate_Args(TreeNode* Args, ListNode** arg_list){
     if(Args->numChildren == 3 && strcmp(Args->children[1]->type, "COMMA") == 0){
         translate_Args_COMMA(Args, arg_list);
     }else{
-        char* tp = new_place();
+        char* tp = new_place('a');
         translate_Exp(Args->children[0], tp);
         insertListNode(arg_list, tp);
     }
@@ -780,7 +787,7 @@ void translate_Args(TreeNode* Args, ListNode** arg_list){
 
 void translate_Args_COMMA(TreeNode* Args, ListNode** arg_list){
     translate_Args(Args->children[2], arg_list);
-    char* tp = new_place();
+    char* tp = new_place('a');
     translate_Exp(Args->children[0], tp);
     insertListNode(arg_list, tp);
 }
@@ -796,10 +803,18 @@ char* new_label(){
     return label;
 }
 
-char* new_place(){
+char* new_place(char kind){
     char* place = (char*)malloc(10*sizeof(char));
-    sprintf(place, "t%d", tCnt);
-    printf( "line %d: new place %d\n", line, tCnt++);
+    int target;
+    if (kind == 'a') {
+        target = aCnt++;
+    } else if(kind == 'v') {
+        target = vCnt++;
+    } else if(kind == 't') {
+        target = tCnt++;
+    }
+    sprintf(place, "%c%d", kind, target);
+    // printf( "line %d: new place %s\n", line, place);
     return place;
 }
 
@@ -957,7 +972,7 @@ void initInsert(char* name) {
     }else {
         type -> structure = NULL;
     }
-    strcpy(type -> registerName, new_place());
+    strcpy(type -> registerName, new_place('v'));
     insert(type);
     if (!definingStruct) {
         return;
