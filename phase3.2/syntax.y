@@ -69,34 +69,33 @@
     bool check(char* name);
     Type* get(char* name);
 
-    // TODO void freeLastTable();
     void printAllTable();
 
     Category intOperate(char* op);
     void boolOperate(char* op);
 
 
-    void translate_Exp(TreeNode*, char*);
-    void translate_Exp_INT(TreeNode*, char*);
-    void translate_Exp_ID(TreeNode*, char*);
-    void translate_Exp_ASSIGN(TreeNode*, char*);
-    void translate_Exp_NUM_OP(TreeNode*, char*, char*);
-    void translate_Exp_MINUS(TreeNode*, char*);
-    void translate_Exp_cond(TreeNode*, char*);
-    void translate_Exp_Args(TreeNode*, char*);
-    void translate_Exp_Func(TreeNode* Exp, char* place);
-    void translate_cond_Exp(TreeNode* Exp, char* lb_t, char* lb_f);
-    void translate_cond_Exp_BOOL_OP(TreeNode* Exp, char* lb_t, char* lb_f, char* op);
-    void translate_cond_Exp_AND(TreeNode* Exp, char* lb_t, char* lb_f);
-    void translate_cond_Exp_OR(TreeNode* Exp, char* lb_t, char* lb_f);
-    void translate_Stmt(TreeNode*);
-    void translate_Stmt_RETURN(TreeNode*);
-    void translate_Stmt_IF(TreeNode*);
-    void translate_Stmt_IFELSE(TreeNode* Stmt);
-    void translate_Stmt_WHILE(TreeNode*);
+    char* translate_Exp(TreeNode*, char*);
+    char* translate_Exp_INT(TreeNode*, char*);
+    char* translate_Exp_ID(TreeNode*, char*);
+    char* translate_Exp_ASSIGN(TreeNode*, char*);
+    char* translate_Exp_NUM_OP(TreeNode*, char*, char*);
+    char* translate_Exp_MINUS(TreeNode*, char*);
+    // char* translate_Exp_cond(TreeNode*, char*);
+    char* translate_Exp_Args(TreeNode*, char*);
+    char* translate_Exp_Func(TreeNode* Exp, char* place);
+    char* translate_cond_Exp(TreeNode* Exp, char* lb_t, char* lb_f);
+    char* translate_cond_Exp_BOOL_OP(TreeNode* Exp, char* lb_t, char* lb_f, char* op);
+    char* translate_cond_Exp_AND(TreeNode* Exp, char* lb_t, char* lb_f);
+    char* translate_cond_Exp_OR(TreeNode* Exp, char* lb_t, char* lb_f);
+    char* translate_Stmt(TreeNode*);
+    char* translate_Stmt_RETURN(TreeNode*);
+    char* translate_Stmt_IF(TreeNode*);
+    char* translate_Stmt_IFELSE(TreeNode* Stmt);
+    char* translate_Stmt_WHILE(TreeNode*);
     void translate_Args(TreeNode* Args, ListNode** arg_list);
     void translate_Args_COMMA(TreeNode* Args, ListNode** arg_list);
-    void translate_Param_Dec(TreeNode* Param);
+    char* translate_Param_Dec(TreeNode* Param);
     char* new_label();
     char* new_place(char kind);
 
@@ -177,9 +176,8 @@ Specifier : TYPE {
     $$ = createNode("StructDec", "", $1, 2, createNode("STRUCT", "", $1, 0), createNode("ID", $2.string, $2.line, 0));
     Type* result = get($2.string);
     category = STRUCTURE;
-    // TODO modify error message
     if (result == NULL || result -> category != STRUCTURE){
-        fprintf(syntax_file, "%s not find!\n", $2.string);
+        fprintf(syntax_file, "Error Type 2 at  line %d: structure %s not defined!\n", line, $2.string);
     }else {
         structureDec = result -> structure;
     }
@@ -261,11 +259,10 @@ VarList : ParamDec COMMA VarList {
 }
 ;
 ParamDec : Specifier VarDec {
-    // TODO: function args struct
+    // TODO PHASE2: function args struct
     $$ = createNode("ParamDec", "", $1->line, 2, $1, $2);
     handleParam();
-    // fprintf(code_file, "bug here!\n");
-    translate_Param_Dec($2);
+    fputs(translate_Param_Dec($2), code_file);
 }
 ;
 /* statement */
@@ -283,9 +280,7 @@ StmtList : Stmt StmtList {
 ;
 Stmt : Exp SEMI {
     $$ = createNode("Stmt", "", $1->line, 2, $1, createNode("SEMI", "", $2, 0));
-    translate_Exp($1, "default");
-    // char* place = new_place('t');
-    // translate_Exp($1, place);
+    fputs(translate_Exp($1, "df"), code_file);
     popExp();
 }
 | CompSt {
@@ -299,22 +294,22 @@ Stmt : Exp SEMI {
         fprintf(syntax_file, "Error type 8 at Line %d: incompatiable return type, except: %s, got: %s\n", line, categoryToString(expected), categoryToString(find));
     }
     fprintf(syntax_file, "info line %d: returning %s\n", $1, categoryToString(find));
-    translate_Stmt($$);
+    fputs(translate_Stmt($$), code_file);
 }
 | IF LP Exp RP Stmt %prec LOWER {
     $$ = createNode("Stmt", "", $1, 5, createNode("IF", "", $1, 0), createNode("LP", "", $2, 0), $3, createNode("RP", "", $4, 0), $5);
     popExp();
-    translate_Stmt($$);
+    fputs(translate_Stmt($$), code_file);
 }
 | IF LP Exp RP Stmt ELSE Stmt {
     $$ = createNode("Stmt", "", $1, 7, createNode("IF", "", $1, 0), createNode("LP", "", $2, 0), $3, createNode("RP", "", $4, 0), $5, createNode("ELSE", "", $6, 0), $7);
     popExp();
-    translate_Stmt($$);
+    fputs(translate_Stmt($$), code_file);
 }
 | WHILE LP Exp RP Stmt {
     $$ = createNode("Stmt", "", $1, 5, createNode("WHILE", "", $1, 0), createNode("LP", "", $2, 0), $3, createNode("RP", "", $4, 0), $5);
     popExp();
-    translate_Stmt($$);
+    fputs(translate_Stmt($$), code_file);
 }
 | Exp error {
     yyerror(" Missing semicolon ';'");
@@ -380,7 +375,7 @@ Dec : VarDec {
         fprintf(syntax_file, "Error type 5 at Line %d: unmatching type on both sides of assignment, expected %s, got %s\n", line, categoryToString(category), categoryToString(exp));
     }
     Type* cur = get($1->children[0]->value);
-    translate_Exp($3, cur->registerName);
+    fputs(translate_Exp($3, cur->registerName), code_file);
 }
 ;
 
@@ -551,226 +546,321 @@ CHAR: PCHAR {$$.string = strdup($1.string); $$.line = $1.line;}
 
 %%
 //modified: translation function
-void translate_Exp(TreeNode* Exp, char* place){
+// OK
+char* translate_Exp(TreeNode* Exp, char* place){
     if(strcmp(Exp->children[0]->type, "INT") == 0){
         // INT
-        // printf( "line %d: handling Exp -> INT:%d\n", line, atoi(Exp->children[0]->value));
-        translate_Exp_INT(Exp->children[0], place);
+        return translate_Exp_INT(Exp->children[0], place);
     }else if(Exp->numChildren == 1 && strcmp(Exp->children[0]->type, "ID") == 0){
         // ID
-        // printf( "line %d: handling Exp -> ID:%s\n", line, Exp->children[0]->value);
-        translate_Exp_ID(Exp->children[0], place);
+        return translate_Exp_ID(Exp->children[0], place);
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "ASSIGN") == 0){
         // Exp ASSIGN Exp
-        // printf( "line %d: handling Exp -> Exp ASSIGN Exp\n", line);
-        translate_Exp_ASSIGN(Exp, place);
+        return translate_Exp_ASSIGN(Exp, place);
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "PLUS") == 0){
         // Exp PLUS Exp
-        // printf( "line %d: handling Exp -> Exp PLUS Exp\n", line);
-        translate_Exp_NUM_OP(Exp, place, "+");
+        return translate_Exp_NUM_OP(Exp, place, "+");
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "MINUS") == 0){
         // Exp MINUS Exp
-        // printf( "line %d: handling Exp -> Exp MINUS Exp\n", line);
-        translate_Exp_NUM_OP(Exp, place, "-");
+        return translate_Exp_NUM_OP(Exp, place, "-");
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "MUL") == 0){
         // Exp MUL Exp
-        // printf( "line %d: handling Exp -> Exp MUL Exp\n", line);
-        translate_Exp_NUM_OP(Exp, place, "*");
+        return translate_Exp_NUM_OP(Exp, place, "*");
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "DIV") == 0){
         // Exp DIV Exp
-        // printf( "line %d: handling Exp -> Exp DIV Exp\n", line);
-        translate_Exp_NUM_OP(Exp, place, "/");
+        return translate_Exp_NUM_OP(Exp, place, "/");
     }else if(Exp->numChildren == 2 && strcmp(Exp->children[0]->type, "MINUS") == 0){
         // MINUS Exp
-        // printf( "line %d: handling Exp -> MINUS Exp\n", line);
-        translate_Exp_MINUS(Exp, place);
+        return translate_Exp_MINUS(Exp, place);
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[0]->value, "read") == 0){
-        // printf( "line %d: handling Exp -> read ( )\n", line);
-        fprintf(code_file, "READ %s\n", place);
+        // read ( )
+        char* code = (char*)malloc(15);
+        sprintf(code, "READ %s\n", place);
+        return code;
     }else if(Exp->numChildren == 4 && strcmp(Exp->children[0]->value, "write") == 0){
-        // WRITE Exp
-        // printf( "line %d: handling Exp -> write ( Exp )\n", line);
+        // write ( Exp )
         char* tp = new_place('t');
-        translate_Exp(Exp->children[2], tp);
-        fprintf(code_file, "WRITE %s\n", tp);
+        char* code1 = translate_Exp(Exp->children[2], tp);
+        char code2[15]; sprintf(code2, "WRITE %s", tp);
+        char* code = (char*)malloc(strlen(code1)+15);
+        sprintf(code, "%s%s", code1, code2);
+        // free(code1);
+        return code;
     }else if(Exp->numChildren == 4 && strcmp(Exp->children[2]->type, "Args") == 0){
-        // ID ( Args )
-        // printf( "line %d: handling Exp -> FunID:%s ( Args )\n", line, Exp->children[0]->value);
-        translate_Exp_Args(Exp, place);
+        // ID ( Args ) invoking
+        return translate_Exp_Args(Exp, place);
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[0]->type, "LP") == 0){
         // ( Exp )
-        // printf( "line %d: handling Exp -> ( Exp )\n", line);
-        translate_Exp(Exp->children[1], place);
+        return translate_Exp(Exp->children[1], place);
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "LP") == 0){
         //  ID ( )
-        // printf( "line %d: handling Exp -> FunID:%s ( )\n", line, Exp->children[0]->value);
-        translate_Exp_Func(Exp, place);
+        return translate_Exp_Func(Exp, place);
     }
 }
-
-void translate_Exp_INT(TreeNode* INT, char* place){
+// OK
+char* translate_Exp_INT(TreeNode* INT, char* place){
     sprintf(place, "#%s", INT->value);
-    // fprintf(code_file, "%s := #%s\n", place, INT->value);
+    return place;
 }
-
-void translate_Exp_ID(TreeNode* ID, char* place){
-    //在type中加上此时的变量名
+// OK
+char* translate_Exp_ID(TreeNode* ID, char* place){
     char* var = get(ID->value)->registerName;
     strcpy(place, var);
-    // fprintf(code_file, "%s := %s\n", place, var);
+    return place;
 }
-
-void translate_Exp_ASSIGN(TreeNode* Exp, char* place){
+// OK
+char* translate_Exp_ASSIGN(TreeNode* Exp, char* place){
     char* var1 = get(Exp->children[0]->children[0]->value)->registerName;
     char* var2 = new_place('t');
-    translate_Exp(Exp->children[2], var2);
-    fprintf(code_file, "%s := %s\n", var1, var2);
-    fprintf(code_file, "%s := %s\n", place, var1);
-}
 
-void translate_Exp_NUM_OP(TreeNode* Exp, char* place, char* op){
+    char* code1 = translate_Exp(Exp -> children[2], var2);
+    char code2[15]; sprintf(code2, "%s := %s\n", var1, var2);
+    char code3[15]; sprintf(code3, "%s := %s\n", place, var1);
+
+    char* code = (char*) malloc(strlen(code1)+40);
+    sprintf(code, "%s%s%s", code1, code2, code3);
+    free(code1);
+    return code;
+}
+// OK
+char* translate_Exp_NUM_OP(TreeNode* Exp, char* place, char* op){
     char* tp1 = new_place('t');
     char* tp2 = new_place('t');
-    translate_Exp(Exp->children[0], tp1);
-    translate_Exp(Exp->children[2], tp2);
-    fprintf(code_file, "%s := %s %s %s\n", place, tp1, op, tp2);  
+    
+    char* code1 = translate_Exp(Exp->children[0], tp1);
+    char* code2 = translate_Exp(Exp->children[2], tp2);
+    char code3[20]; sprintf(code3, "%s := %s %s %s\n", place, tp1, op, tp2); 
+     
+    char* code = (char*)malloc(strlen(code1) + strlen(code2) + 20);
+    sprintf(code, "%s%s%s", code1, code2, code3);
+    free(code1);
+    free(code2);
+    return code;
 }
-
-void translate_Exp_MINUS(TreeNode* Exp, char* place){
+// OK
+char* translate_Exp_MINUS(TreeNode* Exp, char* place){
     char* tp = new_place('t');
-    translate_Exp(Exp->children[1], tp);
-    fprintf(code_file, "%s := #0 - %s", place, tp);
+    char* code1 = translate_Exp(Exp->children[1], tp);
+    char code2[20]; sprintf(code2, "%s := #0 - %s", place, tp);
+    char* code = (char*)malloc(strlen(code1) + 20);
+    sprintf(code, "%s%s", code1, code2);
+    free(code1);
+    return code;
 }
 
-void translate_Exp_cond(TreeNode* Exp, char* place){
-    //含条件的表达式
-    char* lb1 = new_label();
-    char* lb2 = new_label();
-    fprintf(code_file, "%s := #0\n", place);
-    translate_cond_Exp(Exp, lb1, lb2);
-    fprintf(code_file, "LABEL %s :\n", lb1);
-    fprintf(code_file, "%s := #1\n", place);
-    fprintf(code_file, "LABEL %s :\n", lb2);
-}
+// char* translate_Exp_cond(TreeNode* Exp, char* place){
+//     //含条件的表达式
+//     char* lb1 = new_label();
+//     char* lb2 = new_label();
+//     fprintf(code_file, "%s := #0\n", place);
+//     translate_cond_Exp(Exp, lb1, lb2);
+//     fprintf(code_file, "LABEL %s :\n", lb1);
+//     fprintf(code_file, "%s := #1\n", place);
+//     fprintf(code_file, "LABEL %s :\n", lb2);
+// }
 
-void translate_Exp_Args(TreeNode* Exp, char* place){
+// OK
+char* translate_Exp_Args(TreeNode* Exp, char* place){
     ListNode** arg_list = (ListNode**)malloc(sizeof(ListNode*));
     *arg_list = NULL;
     translate_Args(Exp->children[2], arg_list);
     ListNode* current = *arg_list;
+    
+    char* code = (char*)malloc(500);
+    // code = "\0";
+    char arg[30];
+    // char* arg = (char*)malloc(30);
+    int cnt = 0;
     while(current != NULL){
-        fprintf(code_file,"ARG %s\n",current->arg);
+        printf("%d\n", cnt++);
+        sprintf(arg, "ARG %s\n",current->arg);
+        printf("%lu\n", strlen(arg));
+        // sprintf(code, "%s%s", code, arg);
+        strcat(code, arg);
         current = current -> next;
     }
+    // free(arg);
     char* name = Exp -> children[0] -> value;
     char* tp = new_place('a');
-    fprintf(code_file, "tp := CALL %s\n", name);
+
+    char call[20];
+    sprintf(call, "tp := CALL %s\n", name);
+    strcat(code, call);
+    return code;
 }
 
-void translate_Exp_Func(TreeNode* Exp, char* place){
+// OK
+char* translate_Exp_Func(TreeNode* Exp, char* place){
     char* name = Exp -> children[0] -> value;
-    fprintf(code_file, "CALL %s\n", name);
+    char* code = (char*)malloc(20);
+    sprintf(code, "%s := CALL %s\n", place, name);
+    return code;
 }
-//TODO：定义语句
-
 
 //modified: translate condition expression
-void translate_cond_Exp(TreeNode* Exp, char* lb_t, char* lb_f){
+// OK
+char* translate_cond_Exp(TreeNode* Exp, char* lb_t, char* lb_f){
     if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "EQ") == 0){
-        translate_cond_Exp_BOOL_OP(Exp, lb_t, lb_f, "==");
+        // Exp == Exp
+        return translate_cond_Exp_BOOL_OP(Exp, lb_t, lb_f, "==");
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "NE") == 0){
-        translate_cond_Exp_BOOL_OP(Exp, lb_t, lb_f, "!=");
+        // Exp != Exp
+        return translate_cond_Exp_BOOL_OP(Exp, lb_t, lb_f, "!=");
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "GE") == 0){
-        translate_cond_Exp_BOOL_OP(Exp, lb_t, lb_f, ">=");
+        // Exp >= Exp
+        return translate_cond_Exp_BOOL_OP(Exp, lb_t, lb_f, ">=");
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "GT") == 0){
-        translate_cond_Exp_BOOL_OP(Exp, lb_t, lb_f, ">");
+        // Exp > Exp
+        return translate_cond_Exp_BOOL_OP(Exp, lb_t, lb_f, ">");
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "LE") == 0){
-        translate_cond_Exp_BOOL_OP(Exp, lb_t, lb_f, "<=");
+        // Exp <= Exp
+        return translate_cond_Exp_BOOL_OP(Exp, lb_t, lb_f, "<=");
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "LT") == 0){
-        translate_cond_Exp_BOOL_OP(Exp, lb_t, lb_f, "<");
+        // Exp < Exp
+        return translate_cond_Exp_BOOL_OP(Exp, lb_t, lb_f, "<");
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "AND") == 0){
-        translate_cond_Exp_AND(Exp, lb_t, lb_f);
+        // Exp && Exp
+        return translate_cond_Exp_AND(Exp, lb_t, lb_f);
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "OR") == 0){
-        translate_cond_Exp_OR(Exp, lb_t, lb_f);
+        // Exp || Exp
+        return translate_cond_Exp_OR(Exp, lb_t, lb_f);
     }else if(Exp->numChildren == 2 && strcmp(Exp->children[1]->type, "NOT") == 0){
-        translate_cond_Exp(Exp->children[1], lb_f, lb_t);
+        // ! Exp
+        return translate_cond_Exp(Exp->children[1], lb_f, lb_t);
     }
 }
 
-void translate_cond_Exp_BOOL_OP(TreeNode* Exp, char* lb_t, char* lb_f, char* op){
+// OK
+char* translate_cond_Exp_BOOL_OP(TreeNode* Exp, char* lb_t, char* lb_f, char* op){
     char* tp1 = new_place('t');
     char* tp2 = new_place('t');
-    translate_Exp(Exp->children[0], tp1);
-    translate_Exp(Exp->children[2], tp2);
-    fprintf(code_file, "IF %s %s %s GOTO %s\n", tp1, op, tp2, lb_t);
-    fprintf(code_file, "GOTO %s\n", lb_f);
+    
+    char* code1 = translate_Exp(Exp->children[0], tp1);
+    char* code2 = translate_Exp(Exp->children[2], tp2);
+    char code3[30]; sprintf(code3, "IF %s %s %s GOTO %s\n", tp1, op, tp2, lb_t);
+    char code4[15]; sprintf(code4, "GOTO %s\n", lb_f);
+    
+    char* code = (char*)malloc(strlen(code1) + strlen(code2) + 45);
+    sprintf(code, "%s%s%s%s", code1, code2, code3, code4);
+    free(code1);
+    free(code2);
+    return code;
 }
 
-void translate_cond_Exp_AND(TreeNode* Exp, char* lb_t, char* lb_f){
+// OK
+char* translate_cond_Exp_AND(TreeNode* Exp, char* lb_t, char* lb_f){
     char* lb1 = new_label();
-    translate_cond_Exp(Exp->children[0], lb1, lb_f);
-    fprintf(code_file, "LABEL %s :\n", lb1);
-    translate_cond_Exp(Exp->children[2], lb_t, lb_f);
+    
+    char* code1 = translate_cond_Exp(Exp->children[0], lb1, lb_f);
+    char code2[15]; sprintf(code2, "LABEL %s :\n", lb1);
+    char* code3 = translate_cond_Exp(Exp->children[2], lb_t, lb_f);
+
+    char* code = (char*)malloc(strlen(code1)+strlen(code3)+15);
+    sprintf(code, "%s%s%s", code1, code2, code3);
+    free(code1);
+    free(code3);
+    return code;
 }
 
-void translate_cond_Exp_OR(TreeNode* Exp, char* lb_t, char* lb_f){
+// OK
+char* translate_cond_Exp_OR(TreeNode* Exp, char* lb_t, char* lb_f){
     char* lb1 = new_label();
-    translate_cond_Exp(Exp->children[0], lb_t, lb1);
-    fprintf(code_file, "LABEL %s :\n", lb1);
-    translate_cond_Exp(Exp->children[2], lb_t, lb_f);
+    
+    char* code1 = translate_cond_Exp(Exp->children[0], lb_t, lb1);
+    char code2[15]; sprintf(code2, "LABEL %s :\n", lb1);
+    char* code3 = translate_cond_Exp(Exp->children[2], lb_t, lb_f);
+
+    char* code = (char*)malloc(strlen(code1)+strlen(code3)+15);
+    sprintf(code, "%s%s%s", code1, code2, code3);
+    free(code1);
+    free(code3);
+    return code;
 }
 
 //modified: translate statement
-void translate_Stmt(TreeNode* Stmt){
+// OK
+char* translate_Stmt(TreeNode* Stmt){
     if(Stmt->numChildren == 3 && strcmp(Stmt->children[0]->type, "RETURN") == 0){
-        translate_Stmt_RETURN(Stmt);
+        return translate_Stmt_RETURN(Stmt);
     }else if(Stmt->numChildren == 5 && strcmp(Stmt->children[0]->type, "IF") == 0){
-        translate_Stmt_IF(Stmt);
+        return translate_Stmt_IF(Stmt);
     }else if(Stmt->numChildren == 7 && strcmp(Stmt->children[0]->type, "IF") == 0){
-        translate_Stmt_IFELSE(Stmt);
+        return translate_Stmt_IFELSE(Stmt);
     }else if(Stmt->numChildren == 5 && strcmp(Stmt->children[0]->type, "WHILE") == 0){
-        translate_Stmt_WHILE(Stmt);
+        return translate_Stmt_WHILE(Stmt);
     }
 }
 
-void translate_Stmt_RETURN(TreeNode* Stmt){
+// OK
+char* translate_Stmt_RETURN(TreeNode* Stmt){
     char* tp = new_place('t');
-    translate_Exp(Stmt->children[1], tp);
-    fprintf(code_file, "RETURN %s\n", tp);
+
+    char* code1 = translate_Exp(Stmt->children[1], tp);
+    char code2[15]; sprintf(code2, "RETURN %s\n", tp);
+    
+    
+    char* code = (char*)malloc(strlen(code1)+15);
+    sprintf(code, "%s%s", code1, code2);
+    free(code1);
+    return code;
 }
 
-void translate_Stmt_IF(TreeNode* Stmt){
+// OK
+char* translate_Stmt_IF(TreeNode* Stmt){
     char* lb1 = new_label();
     char* lb2 = new_label();
-    translate_cond_Exp(Stmt->children[2], lb1, lb2);
-    fprintf(code_file, "LABEL %s :\n", lb1);
-    translate_Stmt(Stmt->children[4]);
-    fprintf(code_file, "LABEL %s :\n", lb2);
+    
+    char* code1 = translate_cond_Exp(Stmt->children[2], lb1, lb2);
+    char code2[15]; sprintf(code2, "LABEL %s :\n", lb1);
+    char* code3 = translate_Stmt(Stmt->children[4]);
+    char code4[15]; sprintf(code4, "LABEL %s :\n", lb2);
+    
+    char* code = (char*)malloc(strlen(code1) + strlen(code3) + 30);
+    sprintf(code, "%s%s%s%s", code1, code2, code3, code4);
+    free(code1);
+    free(code3);
+    return code;
 }
 
-void translate_Stmt_IFELSE(TreeNode* Stmt){
+// OK
+char* translate_Stmt_IFELSE(TreeNode* Stmt){
     char* lb1 = new_label();
     char* lb2 = new_label();
     char* lb3 = new_label();
-    translate_cond_Exp(Stmt->children[2], lb1, lb2);
-    fprintf(code_file, "LABEL %s :\n", lb1);
-    translate_Stmt(Stmt->children[4]);
-    fprintf(code_file, "GOTO %s\n", lb3);
-    fprintf(code_file, "LABEL %s :\n", lb2);
-    translate_Stmt(Stmt->children[6]);
-    fprintf(code_file, "LABEL %s :\n", lb3);
+
+    char* code1 = translate_cond_Exp(Stmt->children[2], lb1, lb2);
+    char code2[15]; sprintf(code2, "LABEL %s :\n", lb1);
+    char* code3 = translate_Stmt(Stmt->children[4]);
+    char code4[15]; sprintf(code4, "GOTO %s\n", lb3);
+    char code5[15]; sprintf(code5, "LABEL %s :\n", lb2);
+    char* code6 = translate_Stmt(Stmt->children[6]);
+    char code7[15]; sprintf(code7, "LABEL %s :\n", lb3);
+    
+    char* code = (char*)malloc(strlen(code1) + strlen(code3) + strlen(code6) + 60);
+    sprintf(code, "%s%s%s%s%s%s%s", code1, code2, code3, code4, code5, code6, code7);
+    free(code1);
+    free(code3);
+    free(code6);
+    return code;
 }
 
-void translate_Stmt_WHILE(TreeNode* Stmt){
+// OK
+char* translate_Stmt_WHILE(TreeNode* Stmt){
     char* lb1 = new_label();
     char* lb2 = new_label();
     char* lb3 = new_label();
-    fprintf(code_file, "LABEL %s :\n", lb1);
-    translate_cond_Exp(Stmt->children[2], lb2, lb3);
-    fprintf(code_file, "LABEL %s :\n", lb2);
-    translate_Stmt(Stmt->children[4]);
-    fprintf(code_file, "GOTO %s\n", lb1);
-    fprintf(code_file, "LABEL %s :\n", lb3);
+    
+    char code1[15]; sprintf(code1, "LABEL %s :\n", lb1);
+    char* code2 = translate_cond_Exp(Stmt->children[2], lb2, lb3);
+    char code3[15]; sprintf(code3, "LABEL %s :\n", lb2);
+    char* code4 = translate_Stmt(Stmt->children[4]);
+    char code5[15]; sprintf(code5, "GOTO %s\n", lb1);
+    char code6[15]; sprintf(code6, "LABEL %s :\n", lb3);
+    char* code = (char*)malloc(strlen(code2)+strlen(code4)+60);
+    sprintf(code, "%s%s%s%s%s%s", code1, code2, code3, code4, code5, code6);
+    free(code2);
+    free(code4);
+    return code;
 }
 
 
@@ -781,6 +871,7 @@ void translate_Args(TreeNode* Args, ListNode** arg_list){
     }else{
         char* tp = new_place('a');
         translate_Exp(Args->children[0], tp);
+        // TODO: this function not declared
         insertListNode(arg_list, tp);
     }
 }
@@ -792,19 +883,21 @@ void translate_Args_COMMA(TreeNode* Args, ListNode** arg_list){
     insertListNode(arg_list, tp);
 }
 
-void translate_Param_Dec(TreeNode* Param){
+char* translate_Param_Dec(TreeNode* Param){
     Type* result = get(Param -> children[0] -> value);
-    fprintf(code_file, "PARAM %s\n", result -> registerName);
+    char* code = (char*)malloc(20);
+    sprintf(code, "PARAM %s\n", result -> registerName);
+    return code;
 }
 
 char* new_label(){
-    char* label = (char*)malloc(sizeof(char) * 10);
+    char* label = (char*)malloc(10);
     sprintf(label, "label%d", labelCnt++);
     return label;
 }
 
 char* new_place(char kind){
-    char* place = (char*)malloc(10*sizeof(char));
+    char* place = (char*)malloc(10);
     int target;
     if (kind == 'a') {
         target = aCnt++;
@@ -814,7 +907,6 @@ char* new_place(char kind){
         target = tCnt++;
     }
     sprintf(place, "%c%d", kind, target);
-    // printf( "line %d: new place %s\n", line, place);
     return place;
 }
 
@@ -930,7 +1022,6 @@ void pop(){
     }
     fprintf(syntax_file, "\nBefore:");
     printAllTable();
-    // TODO clearLastTable();
     scopeDepth--;
     fprintf(syntax_file, "After:");
     printAllTable();
@@ -1007,7 +1098,6 @@ void initFunction(char* name) {
     push();
     declaringFunction = true;
     // tCnt--;
-    // printf( "creating function %s, tCnt-- = %d\n", name, tCnt);
 }
 
 void initStruct(char* name){
@@ -1137,8 +1227,6 @@ void handleFunction(char* name){
     if(functionInvoke == NULL){
         // 无参函数
         pushExp(false, functionType -> function -> returnCategory, NULL);
-
-        // TODO: function return structure!;
         return;
     }
     
@@ -1296,9 +1384,6 @@ void handleExpFetchStructure(char* name) {
         return;
     }
     Type* structureType = exp -> type;
-    if (structureType == NULL){
-        // TODO: fprintf(syntax_file, "something is wrong\n");
-    }
     Type* result = structureFind(structureType -> structure -> typeList, name);
     if(result == NULL){
         fprintf(syntax_file, "Error type 14 at Line %d: accessing an undefined structure member %s.%s\n", line, structureType->name, name);
