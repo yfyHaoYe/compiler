@@ -608,16 +608,17 @@ char* translate_Exp(TreeNode* Exp, char* place){
         // MINUS Exp
         return translate_Exp_MINUS(Exp, place);
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[0]->value, "read") == 0){
-       //printf("Exp 9\n");
+       printf("Exp 9 line %d\n", line);
         // read ( )
         char* code = (char*)calloc(30, sizeof(char));
         sprintf(code, "READ %s\n", place);
         return code;
     }else if(Exp->numChildren == 4 && strcmp(Exp->children[0]->value, "write") == 0){
-       //printf("Exp 10\n");
+       printf("Exp 10 line %d\n", line);
         // write ( Exp )
-        char* code = (char*)calloc(30, sizeof(char));
-        sprintf(code, "WRITE %s\n", place);
+        char* code = (char*)calloc(300, sizeof(char));
+        char* code1 = translate_Exp(Exp -> children[2] -> children[0], place);
+        sprintf(code, "%sWRITE %s\n", code1, place);
         return code;
     }else if(Exp->numChildren == 4 && strcmp(Exp->children[2]->type, "Args") == 0){
         // ID ( Args ) invoking
@@ -632,7 +633,6 @@ char* translate_Exp(TreeNode* Exp, char* place){
 }
 // OK
 char* translate_Exp_INT(TreeNode* INT, char* place){
-    printf("int %s place %s\n", INT -> value, place);
     char* code = (char*)malloc(20);
     sprintf(code, "%s := #%s\n", place, INT->value);
     return code;
@@ -680,7 +680,7 @@ char* translate_Exp_NUM_OP(TreeNode* Exp, char* place, char* op){
 char* translate_Exp_MINUS(TreeNode* Exp, char* place){
     char* tp = new_place('t');
     char* code1 = translate_Exp(Exp->children[1], tp);
-    char* code2 = (char*)calloc(30,1); sprintf(code2, "%s := #0 - %s", place, tp);
+    char* code2 = (char*)calloc(30,1); sprintf(code2, "%s := #0 - %s\n", place, tp);
     char* code = (char*)calloc(strlen(code1) + 30, 1);
     sprintf(code, "%s%s", code1, code2);
     free(code1);
@@ -718,10 +718,9 @@ char* translate_Exp_Args(TreeNode* Exp, char* place){
         current = current -> next;
     };
     char* name = Exp -> children[0] -> value;
-    char* tp = new_place('t');
 
     char* call = (char*)calloc(30, 1);
-    sprintf(call, "%s := CALL %s\n", tp, name);
+    sprintf(call, "%s := CALL %s\n", place, name);
 
     strcat(code, call);
     free(code1);
