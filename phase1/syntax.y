@@ -47,12 +47,12 @@
         char* string;
         int line;
     } str_line;
-    TreeNode* node;
+    struct TreeNode* node;
 }
 %type<str_line> INT CHAR
 %token<str_line> TYPE ID FLOAT DECINT HEXINT PCHAR HEXCHAR STR
 %token<str_line.line> LC RC SEMI COMMA STRUCT RETURN WHILE IF
-%type<node> Program ExtDefList ExtDef ExtDecList Specifier StructSpecifier VarDec FunDec VarList ParamDec CompSt StmtList Stmt DefList Def DecList Dec Exp Args ErrorStmt
+%type<node> Program ExtDefList ExtDef ExtDecList Specifier StructSpecifier VarDec FunDec VarList ParamDec CompSt StmtList Stmt DefList Def DecList Dec Exp Args ErrorStmt FunID StructDec Array
 %nonassoc<node> LOWER
 %nonassoc<str_line.line> ELSE
 %nonassoc<str_line.line> ASSIGN
@@ -70,14 +70,15 @@ Program : ExtDefList {
         perror("Unable to open output file");
         exit(1);
     }
-    //if(!error){}
-    printParseTree($$, 0);
+    if(!error){
+        printParseTree($$, 0);
+    }
 }
 ;
 ExtDefList : ExtDef ExtDefList {
     $$ = createNode("ExtDefList", "", $1->line, 2, $1, $2);
 }
-    | {
+| {
     $$ = createNode("ExtDefList", "", 0, 0);
     $$->empty = true;
 }
@@ -85,7 +86,7 @@ ExtDefList : ExtDef ExtDefList {
 ExtDef : Specifier ExtDecList SEMI {
     $$ = createNode("ExtDef", "", $1->line, 3, $1, $2, createNode("SEMI", "", $3, 0));
 }
-| Specifier SEMI {
+| StructSpecifier SEMI {
     $$ = createNode("ExtDef", "", $1->line, 2, $1, createNode("SEMI", "", $2, 0));
 }
 | Specifier FunDec CompSt {
@@ -101,7 +102,7 @@ ExtDef : Specifier ExtDecList SEMI {
 ExtDecList : VarDec {
     $$ = createNode("ExtDecList", "", $1->line, 1, $1);
 }
-| VarDec COMMA ExtDecList {
+| ExtDecList COMMA VarDec{
     $$ = createNode("ExtDecList", "", $1->line, 3, $1, createNode("COMMA", "", $2, 0), $3);
 }
 ;
@@ -109,40 +110,59 @@ ExtDecList : VarDec {
 Specifier : TYPE {
     $$ = createNode("Specifier", "", $1.line, 1, createNode("TYPE", $1.string, $1.line, 0));
 }
-| StructSpecifier {
-    $$ = createNode("Specifier", "", $1->line, 1, $1);
+| STRUCT ID {
+    $$ = createNode("StructDec", "", $1, 2, createNode("STRUCT", "", $1, 0), createNode("ID", $2.string, $2.line, 0));
 }
 ;
-StructSpecifier : STRUCT ID LC DefList RC {
-    $$ = createNode("StructSpecifier", "", $1, 5, createNode("STRUCT", "", $1, 0), createNode("ID", $2.string, $2.line, 0), createNode("LC", "", $3, 0), $4, createNode("RC", "", $5, 0));
-}
 
-| STRUCT ID {
-    $$ = createNode("StructSpecifier", "", $1, 2, createNode("STRUCT", "", $1, 0), createNode("ID", $2.string, $2.line, 0));
+StructSpecifier : StructDec LC DefList RC {
+    $$ = createNode("StructSpecifier", "", $1 -> line, 5, $1 -> children[0], $1 -> children[1], createNode("LC", "", $2, 0), $3, createNode("RC", "", $4, 0));
 }
 ;
 /* declarator */
+StructDec : STRUCT ID {
+    $$ = createNode("StructDec", "", $1, 2, createNode("STRUCT", "", $1, 0), createNode("ID", $2.string, $2.line, 0));
+}
+;
+
 VarDec : ID {
     $$ = createNode("VarDec", "", $1.line, 1, createNode("ID", $1.string, $1.line, 0));
 }
-| VarDec LB INT RB {
+| Array {
+    $$ = $1;
+}
+;
+
+Array: Array LB INT RB {
     $$ = createNode("VarDec", "", $1->line, 4, $1, createNode("LB", "", $2, 0), createNode("INT", $3.string, $3.line, 0), createNode("RB", "", $4, 0));
 }
-| VarDec LB INT error {
+| ID LB INT RB {
+    $$ = createNode("VarDec", "", $1.line, 1, createNode("ID", $1.string, $1.line, 0));
+}
+| Array LB INT error {
+    yyerror(" Missing closing square bracket ']'");
+}
+| ID LB INT error {
     yyerror(" Missing closing square bracket ']'");
 }
 ;
-FunDec : ID LP VarList RP {
-    $$ = createNode("FunDec", "", $1.line, 4, createNode("ID", $1.string, $1.line, 0), createNode("LP", "", $2, 0), $3, createNode("RP", "", $4, 0));
+;
+
+FunDec : FunID LP VarList RP {
+    $$ = createNode("FunDec", "", $1->line, 4, $1, createNode("LP", "", $2, 0), $3, createNode("RP", "", $4, 0));
 }
-| ID LP RP {
-    $$ = createNode("FunDec", "", $1.line, 3, createNode("ID", $1.string, $1.line, 0), createNode("LP", "", $2, 0), createNode("RP", "", $3, 0));
+|FunID LP RP {
+    $$ = createNode("FunDec", $1 -> value, $1->line, 3, $1, createNode("LP", "", $2, 0), createNode("RP", "", $3, 0));
 }
-|ID LP VarList error {
+|FunID LP VarList error {
     yyerror(" Missing closing parenthesis ')'");
 }
-|ID LP error {
+|FunID LP error {
     yyerror(" Missing closing parenthesis ')'");
+}
+;
+FunID : ID {
+    $$ = createNode("ID", $1.string, $1.line, 0);
 }
 ;
 VarList : ParamDec COMMA VarList {
@@ -151,7 +171,9 @@ VarList : ParamDec COMMA VarList {
 | ParamDec {
     $$ = createNode("VarList", "", $1->line, 1, $1);
 }
+;
 ParamDec : Specifier VarDec {
+    // TODO PHASE2: function args struct
     $$ = createNode("ParamDec", "", $1->line, 2, $1, $2);
 }
 ;
@@ -196,6 +218,7 @@ Stmt : Exp SEMI {
 | ErrorStmt Stmt %prec LOWER {}
 | ErrorStmt Stmt ELSE Stmt {}
 ;
+
 ErrorStmt: IF LP Exp error{
     yyerror(" Missing closing parenthesis ')'");
 }
@@ -209,13 +232,14 @@ ErrorStmt: IF LP Exp error{
     yyerror(" Missing opening parenthesis '('");
 }
 ;
+
 /* local definition */
 DefList : Def DefList {
     $$ = createNode("DefList", "", $1->line, 2, $1, $2);
 }
 |  {
     $$ = createNode("DefList", "", 0, 0);
-    $$->empty = true;
+    $$ -> empty = true;
 }
 ;
 Def : Specifier DecList SEMI {
@@ -228,10 +252,12 @@ Def : Specifier DecList SEMI {
     yyerror(" Missing Specifier");
 }
 ;
+
 DecList : Dec {
     $$ = createNode("DecList", "", $1->line, 1, $1);
 }
-| Dec COMMA DecList {
+|
+DecList COMMA Dec {
     $$ = createNode("DecList", "", $1->line, 3, $1, createNode("COMMA", "", $2, 0), $3);
 }
 ;
@@ -242,6 +268,7 @@ Dec : VarDec {
     $$ = createNode("Dec", "", $1->line, 3, $1, createNode("ASSIGN", "", $2, 0), $3);
 }
 ;
+
 /* Expression */
 Exp : Exp ASSIGN Exp {
     $$ = createNode("Exp", "", $1->line, 3, $1, createNode("ASSIGN", "", $2, 0), $3);
@@ -291,9 +318,6 @@ Exp : Exp ASSIGN Exp {
 | NOT Exp {
     $$ = createNode("Exp", "", $1, 2, createNode("NOT", "", $1, 0), $2);
 }
-| ID LP RP {
-    $$ = createNode("Exp", "", $1.line, 3, createNode("ID", $1.string, $1.line, 0), createNode("LP", "", $1.line, 0), createNode("RP", "", $1.line, 0));
-}
 | Exp LB Exp RB {
     $$ = createNode("Exp", "", $1->line, 4, $1, createNode("LB", "", $2, 0), $3, createNode("RB", "", $4, 0));
 }
@@ -315,6 +339,10 @@ Exp : Exp ASSIGN Exp {
 | STR {
     $$ = createNode("Exp", "", $1.line, 1, createNode("STR", $1.string, $1.line, 0));
 }
+| ID LP RP {
+    $$ = createNode("Exp", "", $1.line, 3, createNode("ID", $1.string, $1.line, 0), createNode("LP", "", $1.line, 0), createNode("RP", "", $1.line, 0));
+    
+}
 | ID LP Args RP {
     $$ = createNode("Exp", "", $1.line, 4, createNode("ID", $1.string, $1.line, 0), createNode("LP", "", $2, 0), $3, createNode("RP", "", $2, 0));
 }
@@ -331,22 +359,20 @@ Exp : Exp ASSIGN Exp {
     yyerror(" Missing closing parenthesis ')'");
 }
 ;
+
 Args : Exp COMMA Args {
     $$ = createNode("Args", "", $1->line, 3, $1, createNode("COMMA", "", 0, 0), $3);
+    
 }
 | Exp {
     $$ = createNode("Args", "", $1->line, 1, $1);
 }
 ;
-INT: DECINT{$$.string = strdup($1.string);
-$$.line = $1.line;}
-| HEXINT {$$.string = strdup(convertToDec($1.string));
-$$.line = $1.line;}
+INT: DECINT{$$.string = strdup($1.string); $$.line = $1.line;}
+| HEXINT {$$.string = strdup(convertToDec($1.string)); $$.line = $1.line;}
 ;
-CHAR: PCHAR {$$.string = strdup($1.string);
-$$.line = $1.line;}
-| HEXCHAR {$$.string = strdup($1.string);
-$$.line = $1.line;}
+CHAR: PCHAR {$$.string = strdup($1.string); $$.line = $1.line;}
+| HEXCHAR {$$.string = strdup($1.string); $$.line = $1.line;}
 ;
 %%
 
