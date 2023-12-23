@@ -87,7 +87,6 @@
     char* translate_Exp_ASSIGN(TreeNode*, char*);
     char* translate_Exp_NUM_OP(TreeNode*, char*, char*);
     char* translate_Exp_MINUS(TreeNode*, char*);
-    // char* translate_Exp_cond(TreeNode*, char*);
     char* translate_Exp_Args(TreeNode*, char*);
     char* translate_Exp_Func(TreeNode* Exp, char* place);
     char* translate_cond_Exp(TreeNode* Exp, char* lb_t, char* lb_f);
@@ -576,45 +575,35 @@ char* popCode() {
 // OK
 char* translate_Exp(TreeNode* Exp, char* place){
     if(strcmp(Exp->children[0]->type, "INT") == 0){
-       //printf("Exp 1\n");
         // INT
         return translate_Exp_INT(Exp->children[0], place);
     }else if(Exp->numChildren == 1 && strcmp(Exp->children[0]->type, "ID") == 0){
-       //printf("Exp 2\n");
         // ID
         return translate_Exp_ID(Exp->children[0], place);
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "ASSIGN") == 0){
-       //printf("Exp 3\n");
         // Exp ASSIGN Exp
         return translate_Exp_ASSIGN(Exp, place);
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "PLUS") == 0){
-       //printf("Exp 4\n");
         // Exp PLUS Exp
         return translate_Exp_NUM_OP(Exp, place, "+");
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "MINUS") == 0){
-       //printf("Exp 5\n");
         // Exp MINUS Exp
         return translate_Exp_NUM_OP(Exp, place, "-");
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "MUL") == 0){
-       //printf("Exp 6\n");
         // Exp MUL Exp
         return translate_Exp_NUM_OP(Exp, place, "*");
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "DIV") == 0){
-       //printf("Exp 7\n");
         // Exp DIV Exp
         return translate_Exp_NUM_OP(Exp, place, "/");
     }else if(Exp->numChildren == 2 && strcmp(Exp->children[0]->type, "MINUS") == 0){
-       //printf("Exp 8\n");
         // MINUS Exp
         return translate_Exp_MINUS(Exp, place);
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[0]->value, "read") == 0){
-       printf("Exp 9 line %d\n", line);
         // read ( )
         char* code = (char*)calloc(30, sizeof(char));
         sprintf(code, "READ %s\n", place);
         return code;
     }else if(Exp->numChildren == 4 && strcmp(Exp->children[0]->value, "write") == 0){
-       printf("Exp 10 line %d\n", line);
         // write ( Exp )
         char* code = (char*)calloc(300, sizeof(char));
         char* code1 = translate_Exp(Exp -> children[2] -> children[0], place);
@@ -635,8 +624,9 @@ char* translate_Exp(TreeNode* Exp, char* place){
 char* translate_Exp_INT(TreeNode* INT, char* place){
     char* code = (char*)malloc(20);
     sprintf(code, "%s := #%s\n", place, INT->value);
-    return code;
+        return code;
 }
+
 // OK
 char* translate_Exp_ID(TreeNode* ID, char* place){
     char* code = (char*)malloc(20);
@@ -644,6 +634,7 @@ char* translate_Exp_ID(TreeNode* ID, char* place){
     sprintf(code, "%s := %s\n", place, var);
     return code;
 }
+
 // OK
 char* translate_Exp_ASSIGN(TreeNode* Exp, char* place){
     char* var1 = get(Exp->children[0]->children[0]->value)->registerName;
@@ -660,6 +651,7 @@ char* translate_Exp_ASSIGN(TreeNode* Exp, char* place){
     free(code3);
     return code;
 }
+
 // OK
 char* translate_Exp_NUM_OP(TreeNode* Exp, char* place, char* op){
     char* tp1 = new_place('t');
@@ -688,17 +680,6 @@ char* translate_Exp_MINUS(TreeNode* Exp, char* place){
     return code;
 }
 
-// char* translate_Exp_cond(TreeNode* Exp, char* place){
-//     //含条件的表达式
-//     char* lb1 = new_label();
-//     char* lb2 = new_label();
-//     fprintf(code_file, "%s := #0\n", place);
-//     translate_cond_Exp(Exp, lb1, lb2);
-//     fprintf(code_file, "LABEL %s :\n", lb1);
-//     fprintf(code_file, "%s := #1\n", place);
-//     fprintf(code_file, "LABEL %s :\n", lb2);
-// }
-
 // OK
 char* translate_Exp_Args(TreeNode* Exp, char* place){
     
@@ -719,7 +700,7 @@ char* translate_Exp_Args(TreeNode* Exp, char* place){
     };
     char* name = Exp -> children[0] -> value;
 
-    char* call = (char*)calloc(30, 1);
+    char* call = (char*)calloc(300, 1);
     sprintf(call, "%s := CALL %s\n", place, name);
 
     strcat(code, call);
@@ -824,11 +805,6 @@ char* translate_cond_Exp_OR(TreeNode* Exp, char* lb_t, char* lb_f){
 //modified: translate statement
 // OK
 void translate_Stmt(TreeNode* Stmt){
-    /* if(Stmt->numChildren == 2 && strcmp(Stmt->children[1]->type, "SEMI") == 0){
-        char* place = new_place('t');
-        return translate_Exp(Stmt->children[0], place);
-    } */
-   //printf("stmt %d\n", Stmt->line);
     if(Stmt->numChildren == 3 && strcmp(Stmt->children[0]->type, "RETURN") == 0){
         translate_Stmt_RETURN(Stmt);
     }else if(Stmt->numChildren == 5 && strcmp(Stmt->children[0]->type, "IF") == 0){
@@ -838,19 +814,14 @@ void translate_Stmt(TreeNode* Stmt){
     }else if(Stmt->numChildren == 5 && strcmp(Stmt->children[0]->type, "WHILE") == 0){
         translate_Stmt_WHILE(Stmt);
     }else if(Stmt->numChildren == 2 && strcmp(Stmt->children[1]->type, "SEMI") == 0){
-        pushCode(translate_Exp(Stmt -> children[0], new_place('t')));
+        char* code = translate_Exp(Stmt -> children[0], new_place('t'));
+        pushCode(code);
     }
-
-    // else if(strcmp(Stmt->children[0]->type, "CompSt") == 0){
-    //      translate_StmtList(Stmt->children[0]->children[2]);
-    // }
 }
 
 void translate_StmtList(TreeNode* StmtList){
     char* code2 = popCode();
-   //printf("code2\n%s", code2);
     char* code1 = popCode();
-   //printf("code1\n%s", code1);
     char* code = (char*)calloc(strlen(code1)+strlen(code2)+1, 1);
     sprintf(code, "%s%s", code1, code2);
     // free(code1);
@@ -898,22 +869,14 @@ void translate_Stmt_IFELSE(TreeNode* Stmt){
     char* lb3 = new_label();
 
     char* code1 = translate_cond_Exp(Stmt->children[2], lb1, lb2);
-   //printf("%s", code1);
     char* code2 = (char*)calloc(30, 1); sprintf(code2, "LABEL %s :\n", lb1);
-   //printf("%s", code2);
     char* code6 = popCode();
-   //printf("%s", code6); 
     char* code4 = (char*)calloc(30, 1); sprintf(code4, "GOTO %s\n", lb3);
-   //printf("%s", code4);
     char* code5 = (char*)calloc(30, 1); sprintf(code5, "LABEL %s :\n", lb2);
-   //printf("%s", code5);
     char* code3 = popCode();
-   //printf("%s", code3);
     char* code7 = (char*)calloc(30, 1); sprintf(code7, "LABEL %s :\n", lb3);
-   //printf("%s", code7);
     char* code = (char*)calloc(strlen(code1) + strlen(code3) + strlen(code6) + 120, 1);
     sprintf(code, "%s%s%s%s%s%s%s", code1, code2, code3, code4, code5, code6, code7);
-   //printf("%s", code);
     free(code1);
     free(code2);
     free(code3);
@@ -956,7 +919,6 @@ char* translate_Args(TreeNode* Args, ListNode** arg_list){
     }
     char* tp = new_place('t');
     insertListNode(arg_list, tp);
-    printf("%s %s\n", Args->children[0]->type, Args->children[0]->children[0]->type);
     strcat(code, translate_Exp(Args->children[0], tp));
     return code;
 }
