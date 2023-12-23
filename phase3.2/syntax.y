@@ -20,7 +20,6 @@
     char num[50];
     void freeTree(TreeNode* node);
     FILE* code_file;
-    FILE* debug_file;
 
     //phase2
     TypeTable* scopeStack[MAX_DEPTH];
@@ -624,7 +623,7 @@ char* translate_Exp(TreeNode* Exp, char* place){
 char* translate_Exp_INT(TreeNode* INT, char* place){
     char* code = (char*)malloc(20);
     sprintf(code, "%s := #%s\n", place, INT->value);
-        return code;
+    return code;
 }
 
 // OK
@@ -1337,7 +1336,6 @@ int main(int argc, char **argv){
     output_file = fopen(output_file_path, "w");
     code_file = fopen("test_a.ir", "w");
     syntax_file = fopen("syntax.txt", "w");
-    debug_file = fopen("test_a_debug.ir", "w");
     if(!(yyin = fopen(file_path, "r"))){
         perror(argv[1]);
         return EXIT_FAIL;
