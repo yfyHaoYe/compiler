@@ -212,6 +212,7 @@ VarDec : ID {
     $$ = $1;
     fprintf(syntax_file, "info line %d: creating VarDec from Array, name: %s\n", line, arrayType -> name);
     insert(arrayType);
+    // TODO
     // arrayType -> registerName = new_place('v');
     // fputs("DEC %s %d", arrayType->registerName, arrayType->size);
     clearArray();
@@ -268,7 +269,6 @@ VarList : ParamDec COMMA VarList {
 }
 ;
 ParamDec : Specifier VarDec {
-    // TODO PHASE2: function args struct
     $$ = createNode("ParamDec", "", $1->line, 2, $1, $2);
     handleParam();
     char* code = translate_Param_Dec($2);
@@ -643,8 +643,8 @@ char* translate_Exp_ID(TreeNode* ID, char* place){
     return code;
 }
 
-// char* translate_Exp_Array(TreeNode* Exp, char* place){
-    
+// TODO
+// char* translate_Exp_Array(TreeNode* Exp, char* place){    
 //     // Exp LB Exp RB
 //     char* code = (char*)calloc(?, 1);
 //     char* tp = new_place('t');
@@ -686,6 +686,7 @@ char* translate_Exp_NUM_OP(TreeNode* Exp, char* place, char* op){
     free(code3);
     return code;
 }
+
 char* translate_Exp_MINUS(TreeNode* Exp, char* place){
     char* tp = new_place('t');
     char* code1 = translate_Exp(Exp->children[1], tp);
@@ -834,6 +835,7 @@ void translate_StmtList(TreeNode* StmtList){
     char* code1 = popCode();
     char* code = (char*)calloc(strlen(code1)+strlen(code2)+1, 1);
     sprintf(code, "%s%s", code1, code2);
+    // TODO
     // free(code1);
     // free(code2);
     pushCode(code);
@@ -924,8 +926,8 @@ char* translate_Args(TreeNode* Args, ListNode** arg_list){
         strcat(code, translate_Args(Args->children[2], arg_list));
     }
     char* tp = new_place('t');
-    insertListNode(arg_list, tp);
     strcat(code, translate_Exp(Args->children[0], tp));
+    insertListNode(arg_list, tp);
     return code;
 }
 
@@ -1348,20 +1350,6 @@ int main(int argc, char **argv){
         perror(argv[1]);
         return EXIT_FAIL;
     }
-
-    // category = INT;
-    // initFunction("read");
-
-    // category = NUL;
-    // initFunction("write");
-    // functionCreate -> paramNum = 1;
-    // functionCreate -> varList = (CategoryList*)malloc(sizeof(CategoryList));
-    // functionCreate -> varList -> category = INT;
-    // functionCreate -> varList -> next = NULL;
-
-    // category = NUL;
-    // functionCreate = NULL;
-
     yyparse();
     fclose(output_file);
     return EXIT_OK;
