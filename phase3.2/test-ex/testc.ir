@@ -1,0 +1,59 @@
+FUNCTION compare :
+PARAM v0
+PARAM v1
+LABEL label3 :
+IF v2 < #5 GOTO label4
+GOTO label5
+LABEL label4 :
+t8 := v2 * #4
+t5 := v0 + t8
+t11 := v2 * #4
+t6 := v1 + t11
+IF *t5 < *t6 GOTO label0
+GOTO label1
+LABEL label0 :
+WRITE #1
+t1 := v3 + #1
+v3 := t1
+GOTO label2
+LABEL label1 :
+a0 := #0 - #1
+WRITE a0
+LABEL label2 :
+t14 := v2 + #1
+v2 := t14
+GOTO label3
+LABEL label5 :
+RETURN v3
+FUNCTION main :
+DEC v4 40
+DEC v5 40
+t20 := &v4 + #0
+*t20 := #13
+t23 := &v5 + #0
+*t23 := #7
+t26 := &v4 + #4
+*t26 := #8
+t29 := &v5 + #4
+*t29 := #22
+t32 := &v4 + #8
+t33 := #0 - #4
+*t32 := t33
+t36 := &v5 + #8
+*t36 := #8
+t39 := &v4 + #12
+*t39 := #20
+t42 := &v5 + #12
+*t42 := #20
+t45 := &v4 + #16
+t46 := #0 - #134
+*t45 := t46
+t49 := &v5 + #16
+t50 := #0 - #123
+*t49 := t50
+ARG &v5
+ARG &v4
+t54 := CALL compare
+v6 := t54
+WRITE v6
+RETURN #0

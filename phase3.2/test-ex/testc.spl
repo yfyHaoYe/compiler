@@ -1,0 +1,31 @@
+int compare(int a[1], int b[1]){
+    int i = 0;
+    int cnt = 0;
+    while(i < 5){
+        if(a[i] < b[i]){
+            write(1);
+            cnt++;
+        }else{
+            write(-1);
+        }
+    }
+    return cnt;
+}
+int main(){
+    int a[10];
+    int b[10];
+    int c;
+    a[0] = 13;
+    b[0] = 7;
+    a[1] = 8;
+    b[1] = 22;
+    a[2] = -4;
+    b[2] = 8;
+    a[3] = 20;
+    b[3] = 20;
+    a[4] = -134;
+    b[4] = -123;
+    c = compare(a, b);
+    write(c);
+    return 0;
+}

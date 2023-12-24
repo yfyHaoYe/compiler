@@ -1,0 +1,29 @@
+int binarySearch(int a[1], int start, int end, int target){
+    int middle;
+    if (end - start == 1){
+        return start;
+    }
+    middle = (start + end) / 2;
+    if(a[middle] > target){
+        return binarySearch(a, start, middle, target);
+    }else{
+        return binarySearch(a, middle, end, target);
+    }
+    return 0;
+}
+int main(){
+    int a[8];
+    int target, ans;
+    a[0] = 1;
+    a[1] = 8;
+    a[2] = 12;
+    a[3] = 25;
+    a[4] = 28;
+    a[5] = 53
+    a[6] = 76;
+    a[7] = 99;
+    target = 26;
+    ans = binarySearch(a, 0, 8, target);
+    write(ans);
+    return 0;
+}

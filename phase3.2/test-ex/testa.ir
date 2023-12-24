@@ -1,0 +1,12 @@
+FUNCTION main :
+DEC v0 41580
+DEC v1 20160
+t0 := &v0 + #9144
+*t0 := #1
+t3 := &v1 + #2564
+*t3 := #5
+a0 := &v0 + #9144
+WRITE *a0
+a0 := &v1 + #2564
+WRITE *a0
+RETURN #0

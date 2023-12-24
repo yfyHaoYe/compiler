@@ -1,0 +1,38 @@
+FUNCTION hanoi :
+PARAM v0
+PARAM v1
+PARAM v2
+PARAM v3
+IF v0 == #1 GOTO label0
+GOTO label1
+LABEL label0 :
+t0 := v1 * #1000000
+a0 := t0 + v3
+WRITE a0
+GOTO label2
+LABEL label1 :
+t7 := v0 - #1
+ARG v2
+ARG v3
+ARG v1
+ARG t7
+a0 := CALL hanoi
+t10 := v1 * #1000000
+a0 := t10 + v3
+WRITE a0
+t17 := v0 - #1
+ARG v3
+ARG v1
+ARG v2
+ARG t17
+a0 := CALL hanoi
+LABEL label2 :
+RETURN #0
+FUNCTION main :
+v4 := #3
+ARG #3
+ARG #2
+ARG #1
+ARG v4
+a0 := CALL hanoi
+RETURN #0

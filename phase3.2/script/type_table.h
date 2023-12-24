@@ -1,6 +1,7 @@
 #ifndef Type_TABLE
 #define Type_TABLE
 #define TABLE_SIZE 97
+#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -27,7 +28,6 @@ typedef struct Type {
         struct Array* array;
         struct Structure* structure;
         // struct TypeTable* structure;
-        // struct Structure* structure;
         struct Function* function;
         // char string[50];
     };
@@ -53,6 +53,8 @@ typedef struct Function{
 typedef struct Array {
     struct Type* base;
     int size;
+    int totalSize;
+    bool isPointer;
 }Array;
 
 
@@ -113,8 +115,5 @@ void freeTypeList(TypeList* typeList);
 
 void freeFunction(Function* function);
 
-// bool checkTypeSame(Type* type1, Type* type2);
-
-// bool checkStructureSame(TypeList* typeList1, TypeList* typeList2);
 #endif
 

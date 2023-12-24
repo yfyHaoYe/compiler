@@ -20,6 +20,7 @@
     char num[50];
     void freeTree(TreeNode* node);
     FILE* code_file;
+    FILE* output_file;
 
     //phase2
     TypeTable* scopeStack[MAX_DEPTH];
@@ -52,7 +53,6 @@
     void initStruct(char* name);
     void initArray();
     void insert();
-    void clearArray();
 
     Category intOperate(char* op);
     void boolOperate(char* op);
@@ -102,6 +102,7 @@
     char* new_label();
     char* new_place(char kind);
     void translate_StmtList(TreeNode* StmtList);
+    char* translate_Exp_Array(TreeNode* Exp, char* place);
 
 %}
 %union {
@@ -167,6 +168,10 @@ ExtDef : Specifier ExtDecList SEMI {
 ;
 ExtDecList : VarDec {
     $$ = createNode("ExtDecList", "", $1->line, 1, $1);
+    if(arrayType!=NULL){
+        arrayType->array->isPointer = false;
+        arrayType = NULL;
+    }
 }
 | ExtDecList COMMA VarDec{
     $$ = createNode("ExtDecList", "", $1->line, 3, $1, createNode("COMMA", "", $2, 0), $3);
@@ -209,22 +214,24 @@ VarDec : ID {
     initInsert($1.string);
 }
 | Array {
-    $$ = $1;
+    $$ = createNode("VarDec", "", $1->line, 1, $1);
     fprintf(syntax_file, "info line %d: creating VarDec from Array, name: %s\n", line, arrayType -> name);
+    strcpy(arrayType -> registerName, new_place('v'));
     insert(arrayType);
-    // TODO
-    // arrayType -> registerName = new_place('v');
-    // fputs("DEC %s %d", arrayType->registerName, arrayType->size);
-    clearArray();
+    char* code = (char*)calloc(30,1);
+    if(!declaringFunction){
+        fprintf(code_file, "DEC %s %d\n", arrayType -> registerName, arrayType -> array -> totalSize * 4);
+    }
+    codeStack[codeDepth++] = code;
 }
 ;
 
 Array: Array LB INT RB {
-    $$ = createNode("VarDec", "", $1->line, 4, $1, createNode("LB", "", $2, 0), createNode("INT", $3.string, $3.line, 0), createNode("RB", "", $4, 0));
+    $$ = createNode("Array", "", $1->line, 4, $1, createNode("LB", "", $2, 0), createNode("INT", $3.string, $3.line, 0), createNode("RB", "", $4, 0));
     initArray(arrayType -> name, atoi($3.string), arrayType); 
 }
 | ID LB INT RB {
-    $$ = createNode("VarDec", "", $1.line, 1, createNode("ID", $1.string, $1.line, 0));
+    $$ = createNode("Array", "", $1.line, 1, createNode("ID", $1.string, $1.line, 0));
     Type* base = (Type*)malloc(sizeof(Type));
     strcpy(base->name,  $1.string);
     base -> category = category;
@@ -273,6 +280,11 @@ ParamDec : Specifier VarDec {
     handleParam();
     char* code = translate_Param_Dec($2);
     fputs(code, code_file);
+    if(arrayType!=NULL && arrayType->array!=NULL){
+        arrayType->array->isPointer = true;
+        arrayType = NULL;
+    }
+    arrayType = NULL;
 }
 ;
 /* statement */
@@ -374,6 +386,10 @@ DecList COMMA Dec {
 ;
 Dec : VarDec {
     $$ = createNode("Dec", "", $1->line, 1, $1);
+    if(arrayType!=NULL){
+        arrayType->array->isPointer = false;
+        arrayType = NULL;
+    }
 }
 | VarDec ASSIGN Exp {
     $$ = createNode("Dec", "", $1->line, 3, $1, createNode("ASSIGN", "", $2, 0), $3);
@@ -383,6 +399,10 @@ Dec : VarDec {
     }
     Type* cur = get($1->children[0]->value);
     fputs(translate_Exp($3, cur->registerName), code_file);
+    if(arrayType!=NULL){
+        arrayType->array->isPointer = false;
+        arrayType = NULL;
+    }
 }
 ;
 
@@ -504,13 +524,19 @@ Exp : Exp ASSIGN Exp {
 }
 | ID LP RP {
     $$ = createNode("Exp", "", $1.line, 3, createNode("ID", $1.string, $1.line, 0), createNode("LP", "", $1.line, 0), createNode("RP", "", $1.line, 0));
-    if (strcpy($1.string,"read") != 0){
+    if (strcmp($1.string,"read") != 0){
         handleFunction($1.string);
+    }else{
+        pushExp(false, INT, NULL);
     }
 }
 | ID LP Args RP {
     $$ = createNode("Exp", "", $1.line, 4, createNode("ID", $1.string, $1.line, 0), createNode("LP", "", $2, 0), $3, createNode("RP", "", $2, 0));
-    handleFunction($1.string);
+    if (strcmp($1.string, "write") != 0){
+        handleFunction($1.string);
+    }else{
+        pushExp(false, NUL, NULL);
+    }
 }
 | ID LP Args error {
     yyerror(" Missing closing parenthesis ')'");
@@ -562,7 +588,7 @@ void pushCode(char* code) {
 }
 char* popCode() {
     if (codeDepth == 0) {
-        return "hello world\n";
+        return (char*)calloc(1,1);
     }
     --codeDepth;
     return codeStack[codeDepth];
@@ -605,24 +631,23 @@ char* translate_Exp(TreeNode* Exp, char* place){
         char* code1 = translate_Exp(Exp -> children[2] -> children[0], place);
         sprintf(code, "%sWRITE %s\n", code1, place);
         return code;
+    }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "LP") == 0){
+        //  ID ( )
+        return translate_Exp_Func(Exp, place);
     }else if(Exp->numChildren == 4 && strcmp(Exp->children[2]->type, "Args") == 0){
         // ID ( Args ) invoking
         return translate_Exp_Args(Exp, place);
     }else if(Exp->numChildren == 3 && strcmp(Exp->children[0]->type, "LP") == 0){
         // ( Exp )
         return translate_Exp(Exp->children[1], place);
-    }else if(Exp->numChildren == 3 && strcmp(Exp->children[1]->type, "LP") == 0){
-        //  ID ( )
-        return translate_Exp_Func(Exp, place);
+    }else if(Exp->numChildren == 4 && strcmp(Exp->children[1]->type, "LB") == 0){
+        // Exp LB Exp RB
+        return translate_Exp_Array(Exp, place);
     }
-    // else if(Exp->numChildren == 4 && strcmp(Exp->children[1]->type, "LB")){
-    //     // Exp LB Exp RB
-    //     return translate_Exp_Array(Exp, place);
-    // }
 }
 char* translate_Exp_INT(TreeNode* INT, char* place){
     char* code = (char*)malloc(20);
-    if (place[0] == 't') {
+    if (place[0] == 't' || place[0] == 'a') {
         sprintf(place, "#%s", INT->value);
         strcpy(code, "");
         return code;
@@ -632,10 +657,17 @@ char* translate_Exp_INT(TreeNode* INT, char* place){
 }
 
 char* translate_Exp_ID(TreeNode* ID, char* place){
-    char* var = get(ID->value)->registerName;
-    char* code = (char*)malloc(20);
-    if (place[0] == 't') {
-        sprintf(place, "%s", var);
+    Type* result = get(ID -> value);
+    char* var = result -> registerName;
+    char* code = (char*)calloc(20,1);
+    char* temp = (char*)calloc(20,1);
+    if (result->category == ARRAY&&!result->array->isPointer){    
+        sprintf(temp, "&%s", var);
+    }else{
+        strcpy(temp, var);
+    }
+    if (place[0] == 't'|| place[0] == 'a') {
+        sprintf(place, "%s", temp);
         strcpy(code, "");
         return code;
     }
@@ -644,30 +676,129 @@ char* translate_Exp_ID(TreeNode* ID, char* place){
 }
 
 // TODO
-// char* translate_Exp_Array(TreeNode* Exp, char* place){    
-//     // Exp LB Exp RB
-//     char* code = (char*)calloc(?, 1);
-//     char* tp = new_place('t');
-//     char* code1 = translate_Exp(Exp -> children[3]);
-//     char* var = get(Exp->children[0]->children[0]->name)->registerName;
-//     int offset;
-//     sprintf(code, "%s := &%s + #%d\n", place, var, offset);
-//     return code;
-// }
+char* translate_Exp_Array(TreeNode* Exp, char* place){  
+    // Exp LB Exp RB
+    char* code = (char*)calloc(500, 1);
+    strcpy(code, "");
+    TreeNode* tempNode = Exp;
+    int int_stack[100] = {0};
+    TreeNode* node_stack[100];
+    int addr_flag = 0;
+    int node_flag = 0;
+    int offset = 0;
+    bool hasExpIndex = false;
+    char* offset_tp = (char*)calloc(5,1);
+    strcpy(offset_tp, "");
+    
+    while (tempNode -> numChildren == 4 && strcmp(tempNode -> children[1] -> type, "LB") == 0) {
+        if (strcmp(tempNode->children[2]->children[0]->type, "INT") == 0) {
+            // 整数
+            int_stack[addr_flag++] = atoi(tempNode->children[2]->children[0]->value);
+        }
+        else{
+            // 其他Exp index
+            int_stack[addr_flag++] = -1;
+            node_stack[node_flag++] = tempNode->children[2];
+            hasExpIndex = true;
+        }
+        tempNode = tempNode -> children[0];
+    }
+
+    // prepare for all the Exp index
+    Type* arrType = get(tempNode -> children[0] -> value);
+    int totalSize;
+    for (addr_flag--; addr_flag >= 0; addr_flag--) {
+        arrType = arrType -> array -> base;
+        if (arrType -> category == ARRAY) {
+            totalSize = arrType -> array -> totalSize;
+        }else {
+            totalSize = 1;
+        }
+
+        int cur = int_stack[addr_flag];
+        if (cur != -1) {
+            offset += cur * totalSize;
+        }
+        else {
+            TreeNode* node = node_stack[--node_flag];
+            char* tp = new_place('t');
+            char* offset_code1 = translate_Exp(node, tp);
+            char* offset_code2 = (char*)calloc(100,1); strcpy(offset_code2, "");
+            if(strlen(offset_tp) == 0){
+                // 第一次遇到Exp
+                strcpy(offset_tp, tp);
+            }else{
+                // 更多次遇到
+                sprintf(offset_code2, "%s := %s + %s\n", offset_tp, offset_tp, tp);
+            }
+            strcat(code, offset_code1);
+            strcat(code, offset_code2);
+        }
+    }
+
+    // offset = offset * 4
+    offset = offset * 4;
+
+    if (strlen(offset_tp) != 0){
+        // 遇到过Exp index
+        // offset_tp = offset_tp * 4
+        char* times4 = (char*)calloc(20,1);
+        char* temp_tp = new_place('t');
+        sprintf(times4, "%s := %s * #4\n", temp_tp, offset_tp);
+        strcat(code, times4);
+        strcpy(offset_tp, temp_tp);
+    }
+
+    char* tp1 = new_place('t');
+    char* code1 = translate_Exp(tempNode, tp1);
+    
+    char* code2 = (char*)calloc(30,1);strcpy(code2, "");
+    char* code3 = (char*)calloc(30,1);strcpy(code3, "");
+    if(!hasExpIndex){
+        // 全部为int
+        // place = &register + #offset  (if no Exp index)
+        sprintf(code2, "%s := %s + #%d\n", place, tp1, offset);
+    }else{
+        if(offset != 0) {
+            // 遇到过INT index
+            // offset_tp = offset_tp + #offset 
+            sprintf(code2, "%s := %s + #%d\n", offset_tp, offset_tp, offset);
+        }
+        // place = &register + offset_tp
+        sprintf(code3, "%s := %s + %s\n", place, tp1, offset_tp);
+    }    
+    strcat(code, code1);
+    strcat(code, code2);
+    strcat(code, code3);
+
+    // *place
+    char* place_temp = (char*)calloc(10,1);
+    strcpy(place_temp, place);
+    sprintf(place, "*%s", place_temp);
+    return code;
+}
 
 char* translate_Exp_ASSIGN(TreeNode* Exp, char* place){
-    char* var1 = get(Exp->children[0]->children[0]->value)->registerName;
+    char* var1 = new_place('t');
     char* var2 = new_place('t');
 
-    char* code1 = translate_Exp(Exp -> children[2], var2);
-    char* code2 = (char*)calloc(30, 1); sprintf(code2, "%s := %s\n", var1, var2);
-    char* code3 = (char*)calloc(30, 1); sprintf(code3, "%s := %s\n", place, var1);
+    char* code1 = translate_Exp(Exp -> children[0], var1);
+    char* code2 = translate_Exp(Exp -> children[2], var2);
+    char* code3 = (char*)calloc(30, 1); sprintf(code3, "%s := %s\n", var1, var2);
+    char* code4 = (char*)calloc(30, 1);
 
-    char* code = (char*) calloc(strlen(code1)+60, 1);
-    sprintf(code, "%s%s%s", code1, code2, code3);
+    if (place[0] != 'a') {
+        sprintf(code4, "%s := %s\n", place, var1);
+    }else{
+        strcpy(code4, "");
+    }
+
+    char* code = (char*) calloc(strlen(code1) + strlen(code2) + 60, 1);
+    sprintf(code, "%s%s%s%s", code1, code2, code3, code4);
     free(code1);
     free(code2);
     free(code3);
+    free(code4);
     return code;
 }
 
@@ -699,15 +830,13 @@ char* translate_Exp_MINUS(TreeNode* Exp, char* place){
 }
 
 char* translate_Exp_Args(TreeNode* Exp, char* place){
-    
     ListNode** arg_list = (ListNode**)malloc(sizeof(ListNode*));
     *arg_list = NULL;
     char* code1 = translate_Args(Exp->children[2], arg_list);
     ListNode* current = *arg_list;
     
     char* code = (char*)calloc(300, 1);
-    // strcpy(code, code1);
-    sprintf(code, "%s", code1);
+    strcpy(code, code1);
     char* arg = (char*)calloc(30, 1);
     int cnt = 0;
     while(current != NULL){
@@ -825,7 +954,9 @@ void translate_Stmt(TreeNode* Stmt){
     }else if(Stmt->numChildren == 5 && strcmp(Stmt->children[0]->type, "WHILE") == 0){
         translate_Stmt_WHILE(Stmt);
     }else if(Stmt->numChildren == 2 && strcmp(Stmt->children[1]->type, "SEMI") == 0){
-        char* code = translate_Exp(Stmt -> children[0], new_place('t'));
+        char* tp = (char*)calloc(5,1);
+        strcpy(tp, "a0");
+        char* code = translate_Exp(Stmt -> children[0], tp);
         pushCode(code);
     }
 }
@@ -925,6 +1056,15 @@ char* translate_Args(TreeNode* Args, ListNode** arg_list){
     if(Args->numChildren == 3 && strcmp(Args->children[1]->type, "COMMA") == 0){
         strcat(code, translate_Args(Args->children[2], arg_list));
     }
+    if (strcmp(Args->children[0]->type, "ID") == 0){
+        Type* type = get(Args->children[0]->children[0]->value);
+        if(type->category == ARRAY){
+            char* tp = (char*)calloc(20,1);
+            sprintf(tp, "&%s", type->registerName);
+            insertListNode(arg_list, tp);
+            return code;
+        }
+    }
     char* tp = new_place('t');
     strcat(code, translate_Exp(Args->children[0], tp));
     insertListNode(arg_list, tp);
@@ -933,7 +1073,11 @@ char* translate_Args(TreeNode* Args, ListNode** arg_list){
 
 
 char* translate_Param_Dec(TreeNode* Param){
-    Type* result = get(Param -> children[0] -> value);
+    TreeNode* query = Param;
+    while(strcmp(query->type, "ID")!=0){
+        query = query -> children[0];
+    }
+    Type* result = get(query -> value);
     char* code = (char*)calloc(20, 1);
     sprintf(code, "PARAM %s\n", result -> registerName);
     return code;
@@ -952,7 +1096,6 @@ char* new_place(char kind){
         target = vCnt++;
     } else if(kind == 't') {
         target = tCnt++;
-        // printf("line %d: new placeing t%d\n", line, tCnt);
     }
     sprintf(place, "%c%d", kind, target);
     return place;
@@ -1186,18 +1329,6 @@ void insert(Type* type) {
     printAllTable();
 }
 
-void clearArray() {
-    fprintf(syntax_file, "info line %d: clearing array, name: %s\n", line, arrayType -> name);
-    Type* temp = arrayType;
-    while(temp != NULL){
-        temp = arrayType -> array -> base;
-        free(arrayType -> array);
-        free(arrayType);
-        arrayType = temp;
-    }
-    arrayType = NULL;
-}
-
 bool check(char* name) {
     fprintf(syntax_file, "info line %d: checking type, name: %s\n", line, name);
     for (int i = scopeDepth; i >= 0; i--) {
@@ -1314,6 +1445,11 @@ void initArray(char* name, int size, Type* base) {
     arrayType -> array = (Array*)malloc(sizeof(Array));
     arrayType -> array -> size = size;
     arrayType -> array -> base = base;
+    if (base -> category != ARRAY) {
+        arrayType -> array -> totalSize = size;
+    }else{
+        arrayType -> array -> totalSize = size * base -> array -> totalSize;
+    }
 }
 
 int yyerror(char *msg) {

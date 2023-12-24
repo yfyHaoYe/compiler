@@ -86,6 +86,7 @@ void printTable(TypeTable* typeTable){
         HashNode* node = typeTable -> buckets[i];
         while (node != NULL) {
             printType(node -> type);
+            fprintf(syntax_file, "position: %d\n", i);
             node = node -> next;
         }
     }

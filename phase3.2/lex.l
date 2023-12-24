@@ -1,6 +1,5 @@
 %{
     #include "syntax.tab.h"
-    #include "script/my_print.c"
     #include <stdbool.h>
     #include <stdarg.h>
     #include <stdio.h>

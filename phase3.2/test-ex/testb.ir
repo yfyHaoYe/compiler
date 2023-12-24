@@ -1,0 +1,60 @@
+FUNCTION binarySearch :
+PARAM v0
+PARAM v1
+PARAM v2
+PARAM v3
+t1 := v2 - v1
+IF t1 == #1 GOTO label0
+GOTO label1
+LABEL label0 :
+RETURN v1
+LABEL label1 :
+t7 := v1 + v2
+t6 := t7 / #2
+v4 := t6
+t24 := v4 * #4
+t21 := v0 + t24
+IF *t21 > v3 GOTO label2
+GOTO label3
+LABEL label2 :
+ARG v3
+ARG v4
+ARG v1
+ARG v0
+t11 := CALL binarySearch
+RETURN t11
+GOTO label4
+LABEL label3 :
+ARG v3
+ARG v2
+ARG v4
+ARG v0
+t16 := CALL binarySearch
+RETURN t16
+LABEL label4 :
+RETURN #0
+FUNCTION main :
+DEC v5 32
+t27 := &v5 + #0
+*t27 := #1
+t30 := &v5 + #4
+*t30 := #8
+t33 := &v5 + #8
+*t33 := #12
+t36 := &v5 + #12
+*t36 := #25
+t39 := &v5 + #16
+*t39 := #28
+t42 := &v5 + #24
+*t42 := #76
+t45 := &v5 + #28
+*t45 := #99
+v6 := #26
+ARG v6
+ARG #8
+ARG #0
+ARG &v5
+t51 := CALL binarySearch
+v7 := t51
+WRITE v7
+RETURN #0
