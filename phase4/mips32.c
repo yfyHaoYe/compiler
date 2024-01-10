@@ -2,21 +2,20 @@
 
 /* the output file descriptor, may not be explicitly used */
 FILE *fd;
-
+int total_offset = 0;
 #define _tac_kind(tac) (((tac)->code).kind)
 #define _tac_quadruple(tac) (((tac)->code).tac)
 #define _reg_name(reg) regs[reg].name
-
 
 Register get_register(tac_opd *opd){
     assert(opd->kind == OP_VARIABLE);
     char *var = opd->char_val;
     /* COMPLETE the register allocation */
     for (int i = t0; i < t9; i++){
-        if(strcmp(regs[i].var, var) == 0) return _reg_name(i);
+        if(strcmp(regs[i].var->var, var) == 0) return i;
     }
 
-    VarDesc *cur = vars;
+    struct VarDesc *cur = vars;
     while (cur != NULL && strcmp(cur->var, var) != 0) {
         cur = cur -> next;
     }
@@ -32,20 +31,33 @@ Register get_register_w(tac_opd *opd){
     char *var = opd->char_val;
     /* COMPLETE the register allocation (for write) */
     for (int i = t0; i < t9; i++){
-        if(strcmp(regs[i].var, var) == 0) return _reg_name(i);
+        if(strcmp(regs[i].var->var, var) == 0) return i;
     }
-    
-    // TODO: an avaliable target
-    Register target = t0;
-    spill_register(target);
-    return target;
+    for(int i = t0; i < t9; i++){
+        if(regs[i].var->var == NULL){
+            strcpy(regs[i].var->var, var);
+            return i;
+        }
+    }
+
+    //TODO: find a register to spill
+    if(regs[t0].dirty){
+        spill_register(t0);
+    }
+    strcpy(regs[t0].var->var, var);
+    return t0;
 }
 
 void spill_register(Register reg){
     /* COMPLETE the register spilling */
     // TODO: an avaliable offset
-    int offset = 0;
-    _mips_iprintf("sw %s %d", _reg_name(reg), offset);
+    if(regs[reg].var->offset == -1){
+        regs[reg].var->offset = total_offset;
+        _mips_iprintf("sw %s, %d($sp)", _reg_name(reg), total_offset);
+        total_offset += 4;
+    }else{
+        _mips_iprintf("sw %s, %d(sp)", _reg_name(reg), regs[reg].var->offset);
+    }
 }
 
 
