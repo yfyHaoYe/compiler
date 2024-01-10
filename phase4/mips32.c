@@ -12,21 +12,40 @@ Register get_register(tac_opd *opd){
     assert(opd->kind == OP_VARIABLE);
     char *var = opd->char_val;
     /* COMPLETE the register allocation */
-    
-    return t0;
+    for (int i = t0; i < t9; i++){
+        if(strcmp(regs[i].var, var) == 0) return _reg_name(i);
+    }
+
+    VarDesc *cur = vars;
+    while (cur != NULL && strcmp(cur->var, var) != 0) {
+        cur = cur -> next;
+    }
+    assert(cur != NULL);
+    puts("Allocating for a variable in memory\n");    
+    Register target = get_register_w(opd);
+    _mips_iprintf("lw %s %d\n", _reg_name(target), cur->offset);
+    return target;
 }
 
 Register get_register_w(tac_opd *opd){
     assert(opd->kind == OP_VARIABLE);
     char *var = opd->char_val;
     /* COMPLETE the register allocation (for write) */
-
-    return s0;
+    for (int i = t0; i < t9; i++){
+        if(strcmp(regs[i].var, var) == 0) return _reg_name(i);
+    }
+    
+    // TODO: an avaliable target
+    RegDesc target = regs[0];
+    spill_register(target);
+    return target.var;
 }
 
-void spill_register(Register reg){
+void spill_register(RegDesc reg){
     /* COMPLETE the register spilling */
-
+    // TODO: an avaliable offset
+    int offset = 0;
+    _mips_iprintf("sw %s %d", reg.name), offset);
 }
 
 
@@ -345,6 +364,7 @@ tac *emit_code(tac *head){
             tac_code = tac_code->next;
         }
     }
+    return NULL;
 }
 
 /* translate a TAC list into mips32 assembly

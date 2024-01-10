@@ -3,6 +3,8 @@
         "stdlib.h": "c",
         "linked_list.h": "c",
         "stdarg.h": "c",
-        "stdbool.h": "c"
-    }
+        "stdbool.h": "c",
+        "typeinfo": "c"
+    },
+    "C_Cpp.errorSquiggles": "enabled"
 }

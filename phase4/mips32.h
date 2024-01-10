@@ -14,23 +14,25 @@ typedef enum {
 } Register;
 
 
-struct RegDesc {    // the register descriptor
+typedef struct RegDesc {    // the register descriptor
     const char *name;
     char var[8];
     bool dirty; // value updated but not stored
     /* add other fields as you need */
-} regs[NUM_REGS];
+} RegDesc;
+RegDesc regs[NUM_REGS];
 
 
-struct VarDesc {    // the variable descriptor
+typedef struct VarDesc {    // the variable descriptor
     char var[8];
     Register reg;
     int offset; // the offset from stack
     /* add other fields as you need */
     struct VarDesc *next;
-} *vars;
-
+} VarDesc;
+VarDesc *vars;
 
 void mips32_gen(tac *head, FILE *_fd);
 
 #endif // MIPS_H
+
