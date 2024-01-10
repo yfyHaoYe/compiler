@@ -36,16 +36,16 @@ Register get_register_w(tac_opd *opd){
     }
     
     // TODO: an avaliable target
-    RegDesc target = regs[0];
+    Register target = t0;
     spill_register(target);
-    return target.var;
+    return target;
 }
 
-void spill_register(RegDesc reg){
+void spill_register(Register reg){
     /* COMPLETE the register spilling */
     // TODO: an avaliable offset
     int offset = 0;
-    _mips_iprintf("sw %s %d", reg.name), offset);
+    _mips_iprintf("sw %s %d", _reg_name(reg), offset);
 }
 
 
