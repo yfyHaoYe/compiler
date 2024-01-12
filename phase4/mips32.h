@@ -30,11 +30,16 @@ struct VarDesc {    // the variable descriptor
     struct VarDesc *next;
 } *vars;
 
+char* get_output_path(const char* file);
 void mips32_gen(tac *head, FILE *_fd);
-
-Register get_register(tac_opd *opd);
-Register get_register_w(tac_opd *opd);
-void _mips_iprintf(const char *fmt, ...);
-void spill_register(Register reg);
+// struct VarDesc* get_var(char* var);
+// struct VarDesc* new_var(char* var, Register reg, int offset);
+// Register find_empty_register();
+// Register get_register(tac_opd *opd);
+// Register get_register_w(tac_opd *opd);
+// void load_register(Register reg, struct VarDesc* varDesc, bool from_mem);
+// void spill_register(Register reg);
+// void _mips_printf(const char *fmt, ...);
+// void _mips_iprintf(const char *fmt, ...);
 #endif // MIPS_H
 

@@ -4,7 +4,8 @@
         "linked_list.h": "c",
         "stdarg.h": "c",
         "stdbool.h": "c",
-        "typeinfo": "c"
+        "typeinfo": "c",
+        "tac.h": "c"
     },
     "C_Cpp.errorSquiggles": "enabled"
 }

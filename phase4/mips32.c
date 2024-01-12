@@ -3,32 +3,65 @@
 /* the output file descriptor, may not be explicitly used */
 FILE *fd;
 struct VarDesc *vars_tail;
-int total_offset = 0;
+int offset = -1;
 int arg_cnt = a0;
 int param_cnt = a0;
 
 #define _tac_kind(tac) (((tac)->code).kind)
 #define _tac_quadruple(tac) (((tac)->code).tac)
 #define _reg_name(reg) regs[reg].name
+#define _reg_var(reg) regs[reg].var
+#define _reg_dirty(reg) regs[reg].dirty
 
-struct VarDesc* get_var(char* var) {
-    printf("finding var %s\n", var);
-    struct VarDesc* cur = vars;
-    while (cur != NULL && strcmp(cur->var, var)!=0) {
-        cur = cur->next;
+char* get_output_path(const char* file) {
+    const char* extension = ".s";
+    char* output_path = (char*) malloc(strlen(file) + strlen(extension) + 1);
+    strcpy(output_path, file);
+    char* ir_extension = strstr(output_path, ".ir");
+    if (ir_extension != NULL) {
+        strncpy(ir_extension, extension, strlen(extension));
     }
-    return cur;
+    
+    return output_path;
 }
 
-void loadword(Register reg, struct VarDesc* varDesc) {
-    _mips_iprintf("lw %s %d($sp)\n", _reg_name(reg), varDesc->offset * 4);
-    strcpy(regs[reg].var, varDesc->var);
-    varDesc->reg = reg;
-    regs[reg].dirty = FALSE;
+void _mips_printf(const char *fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    vfprintf(fd, fmt, args);
+    va_end(args);
+    fputs("\n", fd);
+}
+
+void _mips_iprintf(const char *fmt, ...) {
+    va_list args;
+    fputs("  ", fd); // `iprintf` stands for indented // // printf
+    va_start(args, fmt);
+    vfprintf(fd, fmt, args);
+    va_end(args);
+    fputs("\n", fd);
+}
+
+struct VarDesc* get_var(char* var) {
+    // printf("finding var %s\n", var);
+    struct VarDesc* cur = vars;
+    while (cur != NULL && strcmp(cur->var, var) != 0) {
+        // printf("%s != %s\n", cur -> var, var);
+        cur = cur->next;
+    }
+    if(cur == NULL){
+        // printf("no result!\n");
+    }
+    else{
+        // printf("finding success!\n");
+    }
+    // printf("finding end!\n");
+    return cur;
 }
 
 struct VarDesc* new_var(char* var, Register reg, int offset) {
     vars_tail->next = (struct VarDesc*)malloc(sizeof(struct VarDesc));
+    vars_tail = vars_tail->next;
     strcpy(vars_tail->var, var);
     vars_tail->reg = reg;
     vars_tail->offset = offset;
@@ -36,92 +69,99 @@ struct VarDesc* new_var(char* var, Register reg, int offset) {
     return vars_tail;
 }
 
-Register get_register(tac_opd *opd){
+void load_register(Register reg, struct VarDesc* varDesc, bool from_mem) {
+    if (from_mem){
+        _mips_iprintf("lw %s %d($sp)", _reg_name(reg), varDesc->offset * 4);
+    }
+    strcpy(_reg_var(reg), varDesc->var);
+    _reg_dirty(reg) = !from_mem;
+    varDesc->reg = reg;
+}
+
+void spill_register(Register reg) {
+    /* COMPLETE the register spilling */
+    if ((strcmp(_reg_var(reg), "") == 0) || !_reg_dirty(reg)) {
+        return;
+    }
+    struct VarDesc* var = get_var(_reg_var(reg));
+    var->reg = zero;
+    strcpy(_reg_var(reg), "");
+
+    if (var->offset == -1) {
+        var->offset = offset++;
+    }
+    _mips_iprintf("sw %s, %d($sp)", _reg_name(reg), var->offset * 4);
+}
+
+Register find_empty_register() {
+    for(Register i = t0; i < t9; i++){
+        if (_reg_var(i) == NULL || strcmp(_reg_var(i), "") == 0) {
+            return i;
+            break;
+        } else {
+            // printf("%s is full with %s\n", _reg_name(i), regs[i].var);
+        }
+    }
+
+    // 所有寄存器都满，将一个寄存器写入内存
+    // TODO: 找到一个可写寄存器
+    Register target = t0;
+    spill_register(target);
+    return target;
+}
+
+Register get_register(tac_opd *opd) {
     assert(opd->kind == OP_VARIABLE);
     char *var = opd->char_val;
     /* COMPLETE the register allocation */
-    
     // 遍历vars寻找var
     struct VarDesc* varDesc = get_var(var);
-    // 读变量，一定能找到
+    // 读变量，一定能找到，且不是第一次出现
     assert(varDesc != NULL);
     
-    if (varDesc->reg >= t0 && varDesc->reg <= t9){
+    if (varDesc->reg != zero){
         // 在寄存器中
+        // printf("reg: %s\n", _reg_name(varDesc->reg));
         return varDesc->reg;
     }
-
+    
+    // printf("fetching %s\n", var);
     // 在内存中，将变量写到某个寄存器中
-    Register reg = get_register_w(opd);
-    loadword(reg, varDesc);
+    Register reg = find_empty_register();
+    load_register(reg, varDesc, TRUE);
+    _reg_dirty(reg) = TRUE;
     return reg;
 }
 
-Register get_register_w(tac_opd *opd){
+Register get_register_w(tac_opd *opd) {
     assert(opd->kind == OP_VARIABLE);
     char *var = opd->char_val;
     /* COMPLETE the register allocation (for write) */
     // 遍历vars寻找var
     struct VarDesc* varDesc = get_var(var);
     
-    if (varDesc!=NULL && varDesc->reg >= t0 && varDesc->reg <= t9) {
-        // 已经在寄存器中
-        regs[varDesc->reg].dirty = TRUE;
+    // 在寄存器中
+    if (varDesc != NULL && varDesc->reg != zero) {
+        _reg_dirty(varDesc->reg) = TRUE;
         return varDesc->reg;
     }
+    
+    // 不在寄存器中，找一个空寄存器存var
+    Register reg = find_empty_register();
 
+    // 对于不在寄存器中的var, 有两种情况：
+    // 1.是新的var
     if (varDesc == NULL) {
-        // 找不到，是新的var
-        varDesc = new_var(var, zero, 0);
+        varDesc = new_var(var, zero, -1);
+        load_register(reg, varDesc, FALSE);
     }
     
-    Register reg = zero;
-    // 找一个空寄存器存var
-    for(Register i = t0; i < t9; i++){
-        if(regs[i].var == NULL){
-            reg = i;
-            break;
-        }
+    // 2.已经在内存中
+    if (varDesc->reg == zero) {
+        load_register(reg, varDesc, TRUE);
     }
-
-    if (reg == zero){
-        // 所有寄存器都满，将一个寄存器写入内存
-        // TODO: find a register to spill
-        reg = t0;
-        if (regs[reg].dirty) {
-            varDesc->offset = total_offset++;
-            varDesc->reg = zero;
-            // regs[reg].var 将在后面更新
-            spill_register(reg);
-        }
-    }    
-    strcpy(regs[reg].var, var);
-    varDesc->reg = reg;
-    regs[reg].dirty = TRUE;
+    _reg_dirty(reg) = TRUE;
     return reg;
-}
-
-void spill_register(Register reg){
-    /* COMPLETE the register spilling */
-    _mips_iprintf("sw %s, 0($sp)", _reg_name(reg));
-    _mips_iprintf("addi $sp, $sp, -4");
-}
-
-void _mips_printf(const char *fmt, ...){
-    va_list args;
-    va_start(args, fmt);
-    vfprintf(fd, fmt, args);
-    va_end(args);
-    fputs("\n", fd);
-}
-
-void _mips_iprintf(const char *fmt, ...){
-    va_list args;
-    fputs("  ", fd); // `iprintf` stands for indented printf
-    va_start(args, fmt);
-    vfprintf(fd, fmt, args);
-    va_end(args);
-    fputs("\n", fd);
 }
 
 
@@ -181,7 +221,6 @@ tac *emit_add(tac *add){
 
 tac *emit_sub(tac *sub){
     Register x, y, z;
-
     x = get_register_w(_tac_quadruple(sub).left);
     if(_tac_quadruple(sub).r1->kind == OP_CONSTANT){
         y = get_register(_tac_quadruple(sub).r2);
@@ -259,7 +298,6 @@ tac *emit_div(tac *div){
 
 tac *emit_addr(tac *addr){
     Register x, y;
-
     x = get_register_w(_tac_quadruple(addr).left);
     y = get_register(_tac_quadruple(addr).right);
     _mips_iprintf("move %s, %s", _reg_name(x), _reg_name(y));
@@ -447,14 +485,18 @@ tac *emit_ifeq(tac *ifeq){
 
 tac *emit_return(tac *return_){
     /* COMPLETE emit function */
-    struct VarDesc* var = get_var(_tac_quadruple(return_).var->char_val);
-    if(var->reg != NUM_REGS){
-        _mips_iprintf("move $v0, %s", _reg_name(var->reg));
-    }else{
-        _mips_iprintf("lw $v0, %d($sp)", var->offset);
+    if (_tac_quadruple(return_).var->kind == OP_CONSTANT){
+        _mips_iprintf("li $v0, %d", _tac_quadruple(return_).var->int_val);
+    } else {
+        struct VarDesc* var = get_var(_tac_quadruple(return_).var->char_val);
+        if (var->reg != zero) {
+            _mips_iprintf("move $v0, %s", _reg_name(var->reg));
+        } else {
+            _mips_iprintf("lw $v0, %d($sp)", var->offset);
+        }
     }
     _mips_iprintf("jr $ra");
-    return return_->next;
+    return return_->next;    
 }
 
 tac *emit_dec(tac *dec){
@@ -464,53 +506,85 @@ tac *emit_dec(tac *dec){
 
 tac *emit_arg(tac *arg){
     /* COMPLETE emit function */
-    Register var;
-    if(_tac_quadruple(arg).var->kind == OP_CONSTANT){
-        var = get_register_w(_tac_quadruple(arg).var);
-        _mips_iprintf("lw %s, %d", _reg_name(var),
-                                   _tac_quadruple(arg).var->int_val);
-    }else{
-        var = get_register(_tac_quadruple(arg).var);
+    Register x;
+    // printf("arging\n");
+    if (arg_cnt <= a3) {
+        spill_register(arg_cnt);
+        if (_tac_quadruple(arg).var->kind == OP_CONSTANT) {
+            _mips_iprintf("li %s, %d", _reg_name(arg_cnt), _tac_quadruple(arg).var->int_val);       
+        } else {
+            x = get_register(_tac_quadruple(arg).var);
+            _mips_iprintf("move %s, %s", _reg_name(arg_cnt), _reg_name(x));
+        }
+    } else {
+        if (_tac_quadruple(arg).var->kind == OP_CONSTANT) {
+            spill_register(t9);    
+            _mips_iprintf("li $t9, %d", _reg_name(arg_cnt), _tac_quadruple(arg).var->int_val);
+            _mips_iprintf("sw $t9, %d($sp)", (offset++) * 4);
+        } else {
+            x = get_register(_tac_quadruple(arg).var);
+            _mips_iprintf("sw %s, %d($sp)", _reg_name(x), (offset++) * 4);
+        }
+        _mips_iprintf("addi $sp, $sp, 4");
     }
-    if(arg_cnt <= a3){
-        _mips_iprintf("move %s, %s", _reg_name(arg_cnt++),_reg_name(var));
-    }else{
-        _mips_iprintf("sw %s 0($sp)", _reg_name(var));
-        _mips_iprintf("addi $sp, $sp, -4");
-        arg_cnt++;
-    }
+    arg_cnt++;
+    // printf("finish arging\n");
     return arg->next;
 }
 
 tac *emit_call(tac *call){
+    // sw live1, offsetlive1 ($sp)
+    // ...
+    // sw livek, offsetlivek ($sp)
+    // subu $sp, $sp, max{0, 4*(n-5)}
+    // move $a0, arg1
+    // ...
+    // move $a3, arg4
+    // sw arg5, 0($sp)
+    // ...
+    // sw argn, (4*(n-5))($sp)
+    // jal callee
+    // addi $sp, $sp, max{0, 4*(n-5)}
+    // lw live1, offsetlive1 ($sp)
+    // ...
+    // lw livek, offsetlivek ($sp)
+    
     /* COMPLETE emit function */
     arg_cnt = a0;
-    _mips_iprintf("sw $ra, 0($sp)");
+    // int live_cnt = 0;
+    // for (Register reg = t0; reg <= t9; reg++) {
+    //     if (regs[reg].dirty) {
+    //         struct VarDesc* var = get_var(regs[reg].var);
+    //         _mips_iprintf("sw %s, %d($sp)", _reg_name(reg), var->offset * 4);
+    //     }
+    // }
+
     _mips_iprintf("addi $sp, $sp, -4");
+    _mips_iprintf("sw $ra, 0($sp)");
     _mips_iprintf("jal %s", _tac_quadruple(call).funcname);
-    _mips_iprintf("addi $sp, $sp, 4");
     _mips_iprintf("lw $ra, 0($sp)");
+    _mips_iprintf("addi $sp, $sp, 4");
+    _mips_iprintf("move %s, $v0", _reg_name(get_register_w(_tac_quadruple(call).ret)));
     return call->next;
 }
 
 tac *emit_param(tac *param){
-    Register reg;
-    int offset;
+    struct VarDesc *var;
     /* COMPLETE emit function */
     if (param_cnt <= a3){
-        reg = param_cnt++;
-        offset = 0;
-    }else{
-        reg = zero;
-        offset = (param_cnt++) - a3;
+        var = new_var(_tac_quadruple(param).p->char_val, param_cnt, -1);
+        load_register(param_cnt, var, FALSE);
+    } else {
+        var = new_var(_tac_quadruple(param).p->char_val, zero, param_cnt - a3 - 1);
     }
-    new_var( _tac_quadruple(param).p->char_val, reg, offset);
-    if (param->next->code.kind != PARAM) param_cnt = a0;
+    param_cnt++;
+    // printf("param: %s, %s, %d\n", _tac_quadruple(param).p->char_val, _reg_name(reg), offset);
+    if ( _tac_kind(param->next) != PARAM) param_cnt = a0;
     return param->next;
 }
 
 tac *emit_read(tac *read){
-    Register x = get_register(_tac_quadruple(read).p);
+    Register x = get_register_w(_tac_quadruple(read).p);
 
     _mips_iprintf("addi $sp, $sp, -4");
     _mips_iprintf("sw $ra, 0($sp)");
@@ -613,6 +687,7 @@ void mips32_gen(tac *head, FILE *_fd){
     regs[ra].name = "$ra";
     vars = (struct VarDesc*)malloc(sizeof(struct VarDesc));
     vars->next = NULL;
+    strcpy(vars->var, "df");
     vars_tail = vars;
     fd = _fd;
     emit_code(head);

@@ -8,7 +8,7 @@ char buf[BUF_SIZE];
 int main(int argc, char *argv[]){
     FILE *fp;
     tac *head;
-    char c, *file;
+    char c, *file, *output_file;
     int size, len;
 
     if(argc != 2){
@@ -30,7 +30,9 @@ int main(int argc, char *argv[]){
     len = strlen(file);
     file[len-2] = 's';
     file[len-1] = '\0';
-    fp = stdout; // fopen(file, "w");
+    // fp = stdout; 
+    output_file = get_output_path(file);
+    fp = fopen(output_file, "w");
     head = tac_from_buffer(buf);
     mips32_gen(head, fp);
     // fclose(fp);
