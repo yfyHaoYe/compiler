@@ -4,7 +4,7 @@ SRC=main.c tac.c mips32.c
 
 splc: clean
 	@mkdir -p $(BIN)
-	$(CC) -Wall -Werror -Wextra $(SRC) -o $(BIN)/$@
+	$(CC) $(SRC) -o $(BIN)/$@
 clean:
 	@rm -rf $(BIN)
 .PHONY: clean

@@ -5,7 +5,9 @@
         "stdarg.h": "c",
         "stdbool.h": "c",
         "typeinfo": "c",
-        "tac.h": "c"
+        "tac.h": "c",
+        "limits": "c",
+        "*.tcc": "c"
     },
     "C_Cpp.errorSquiggles": "enabled"
 }

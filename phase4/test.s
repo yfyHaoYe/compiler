@@ -27,15 +27,17 @@ label1:
   jr $ra
 label2:
   addi $t0, $a0, -1
-  sw $a0, -4($sp)
+  sw $a0, 4($sp)
   move $a0, $t0
-  addi $sp, $sp, -4
   sw $ra, 0($sp)
+  sw $t0, 8($sp)
+  addi $sp, $sp, -12
   jal fact
+  addi $sp, $sp, 12
+  lw $t0, 8($sp)
   lw $ra, 0($sp)
-  addi $sp, $sp, 4
   move $t1, $v0
-  lw $t3 -4($sp)
+  lw $t3 4($sp)
   mul $t2, $t3, $t1
   move $v0, $t2
   jr $ra
@@ -45,24 +47,28 @@ main:
   jal read
   lw $ra, 0($sp)
   addi $sp, $sp, 4
-  move $t4, $v0
-  move $t5, $t4
-  bgt $t5, 1, label3
+  move $t0, $v0
+  move $t1, $t0
+  bgt $t1, 1, label3
   j label4
 label3:
-  move $a0, $t5
-  addi $sp, $sp, -4
+  move $a0, $t1
   sw $ra, 0($sp)
+  sw $t0, 4($sp)
+  sw $t1, 8($sp)
+  addi $sp, $sp, -12
   jal fact
+  addi $sp, $sp, 12
+  lw $t1, 8($sp)
+  lw $t0, 4($sp)
   lw $ra, 0($sp)
-  addi $sp, $sp, 4
-  move $t6, $v0
-  move $t7, $t6
+  move $t2, $v0
+  move $t3, $t2
   j label5
 label4:
-  li $t7, 1
+  li $t3, 1
 label5:
-  move $a0, $t7
+  move $a0, $t3
   addi $sp, $sp, -4
   sw $ra, 0($sp)
   jal write
