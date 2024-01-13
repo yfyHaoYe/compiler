@@ -64,7 +64,7 @@ struct VarDesc* new_var(char* var, Register reg, int offset) {
 
 void load_register(Register reg, struct VarDesc* varDesc, bool from_mem) {
     if (from_mem){
-        _mips_iprintf("lw %s %d($sp)", _reg_name(reg), varDesc->offset * 4);
+        _mips_iprintf("lw %s %d($sp)", _reg_name(reg), -varDesc->offset * 4);
     }
     strcpy(_reg_var(reg), varDesc->var);
     _reg_dirty(reg) = !from_mem;
@@ -79,8 +79,8 @@ void spill_register(Register reg) {
     struct VarDesc* var = get_var(_reg_var(reg));
     var->reg = zero;
     strcpy(_reg_var(reg), "");
-
-    _mips_iprintf("sw %s, %d($sp)", _reg_name(reg), var->offset * 4);
+    _mips_iprintf("bug here!");
+    _mips_iprintf("sw %s, %d($sp)", _reg_name(reg), -var->offset * 4);
 }
 
 Register find_empty_register() {
@@ -336,7 +336,7 @@ tac *emit_iflt(tac *iflt){
     else if(_tac_quadruple(iflt).c2->kind == OP_CONSTANT){
         x = get_register(_tac_quadruple(iflt).c1);
         _mips_iprintf("blt %s, %d, label%d", _reg_name(x),
-                    _tac_quadruple(iflt).c2->int_val, 
+                    _tac_quadruple(iflt).c2->int_val,
                     _tac_quadruple(iflt).labelno->int_val);
     }
     else{
@@ -489,7 +489,7 @@ tac *emit_return(tac *return_){
         if (var->reg != zero) {
             _mips_iprintf("move $v0, %s", _reg_name(var->reg));
         } else {
-            _mips_iprintf("lw $v0, %d($sp)", var->offset);
+            _mips_iprintf("lw $v0, %d($sp)", -var->offset);
         }
     }
     _mips_iprintf("jr $ra");
@@ -502,29 +502,38 @@ tac *emit_dec(tac *dec){
 }
 
 tac *emit_arg(tac *arg){
+    assert(_tac_kind(arg) == ARG);
     /* COMPLETE emit function */
-    Register x;
-    if (arg_cnt <= a3) {
-        spill_register(arg_cnt);
-        if (_tac_quadruple(arg).var->kind == OP_CONSTANT) {
-            _mips_iprintf("li %s, %d", _reg_name(arg_cnt), _tac_quadruple(arg).var->int_val);       
-        } else {
-            x = get_register(_tac_quadruple(arg).var);
-            _mips_iprintf("move %s, %s", _reg_name(arg_cnt), _reg_name(x));
-        }
-    } else {
-        if (_tac_quadruple(arg).var->kind == OP_CONSTANT) {
-            spill_register(t9);    
-            _mips_iprintf("li $t9, %d", _reg_name(arg_cnt), _tac_quadruple(arg).var->int_val);
-            _mips_iprintf("sw $t9, %d($sp)", (offset++) * 4);
-        } else {
-            x = get_register(_tac_quadruple(arg).var);
-            _mips_iprintf("sw %s, %d($sp)", _reg_name(x), (offset++) * 4);
-        }
-        _mips_iprintf("addi $sp, $sp, 4");
+    tac *function = arg;
+    while (_tac_kind(function) != CALL) {
+        function = function->next;
     }
-    arg_cnt++;
-    return arg->next;
+    arg = function->prev;
+    Register x;
+    while (arg->code.kind==ARG) {
+        if (arg_cnt <= a3) {
+            spill_register(arg_cnt);
+            if (_tac_quadruple(arg).var->kind == OP_CONSTANT) {
+                _mips_iprintf("li %s, %d", _reg_name(arg_cnt), _tac_quadruple(arg).var->int_val);       
+            } else {
+                x = get_register(_tac_quadruple(arg).var);
+                _mips_iprintf("move %s, %s", _reg_name(arg_cnt), _reg_name(x));
+            }
+        } else {
+            if (_tac_quadruple(arg).var->kind == OP_CONSTANT) {
+                spill_register(t9);    
+                _mips_iprintf("li $t9, %d", _reg_name(arg_cnt), _tac_quadruple(arg).var->int_val);
+                _mips_iprintf("sw $t9, %d($sp)", -(offset++) * 4);
+            } else {
+                x = get_register(_tac_quadruple(arg).var);
+                _mips_iprintf("sw %s, %d($sp)", _reg_name(x), -(offset++) * 4);
+            }
+            _mips_iprintf("addi $sp, $sp, 4");
+        }
+        arg_cnt++;
+        arg = arg->prev;
+    }
+    return function;
 }
 
 tac *emit_call(tac *call){
@@ -551,11 +560,11 @@ tac *emit_call(tac *call){
     for (Register reg = t0; reg <= t9; reg++) {
         if (_reg_dirty(reg)) {
             struct VarDesc* var = get_var(_reg_var(reg));
-            sprintf(lives[flag], "%s, %d($sp)", _reg_name(reg), var->offset * 4);
+            sprintf(lives[flag], "%s, %d($sp)", _reg_name(reg), -var->offset * 4);
             _mips_iprintf("sw %s", lives[flag++]);
         }
     }
-    int call_offset = offset + max(arg_cnt - a3, 0);
+    int call_offset = offset + max(arg_cnt - a3 - 1, 0);
     _mips_iprintf("addi $sp, $sp, %d", -4 * call_offset);
     
     _mips_iprintf("jal %s", _tac_quadruple(call).funcname);
@@ -581,7 +590,9 @@ tac *emit_param(tac *param){
     }
     param_cnt++;
     offset++;
-    if ( _tac_kind(param->next) != PARAM) param_cnt = a0;
+    if ( _tac_kind(param->next) != PARAM) {
+        param_cnt = a0;
+    }
     return param->next;
 }
 
